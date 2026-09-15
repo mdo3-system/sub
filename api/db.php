@@ -1,9 +1,9 @@
 <?php
 // api/db.php
 $host = 'localhost';
-$dbname = 'eie_w7'; // WordPressと同じDB名でOK
-$user = 'eie_w7';
-$pass = 'kx6hqiboh9ea';
+$dbname = 'mdo3_b1gz3'; // XServer WordPressと同DB
+$user = 'mdo3_0a090';
+$pass = 'ws4YeGaaS9os';
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $user, $pass);
