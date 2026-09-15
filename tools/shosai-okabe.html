@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>面材張り大壁 許容せん断耐力計算書 (グレー本 3.3項準拠)</title>
+    <script>
+        if (window.location.protocol !== 'file:') {
+            fetch('/api/check_auth.php')
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (data && data.authenticated === false) {
+                        window.location.replace('/login.html');
+                    }
+                })
+                .catch(err => console.warn("Auth check failed:", err));
+        }
+    </script>
+    <link rel="stylesheet" href="../css/common.css">
+    <style>
+        /* ツール固有のスタイルのみ残す（共通化しきれないもの） */
+        .grid-layout { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        @media (max-width: 1000px) { .grid-layout { grid-template-columns: 1fr 1fr; } .col-mat { grid-column: 1 / -1; } }
+        @media (max-width: 700px) { .grid-layout { grid-template-columns: 1fr; } .col-mat { grid-column: auto; } }
+        
+        .card { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        h2 { font-size: 1.05em; color: #fff; background: #2c5282; padding: 6px 12px; margin: -15px -15px 15px -15px; border-radius: 8px 8px 0 0; }
+        h2 label { cursor: pointer; display: flex; align-items: center; gap: 5px; }
+        
+        .input-group { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; border-bottom: 1px dotted #e2e8f0; padding-bottom: 3px; }
+        .input-group label { font-weight: bold; font-size: 0.85em; flex: 1; min-width: 120px; }
+        .input-group input, .input-group select { width: 90px; padding: 4px; border: 1px solid #cbd5e0; border-radius: 3px; text-align: right; font-size: 0.9em; }
+        .input-group select { text-align: left; }
+        .unit { width: 35px; margin-left: 5px; font-size: 0.8em; color: #718096; text-align: left; }
+        
+        .viz-box { text-align: center; border: 1px solid #cbd5e0; background: #f8fafc; padding: 10px; margin-top: 10px; }
+        canvas { max-width: 100%; height: auto; display: block; margin: 0 auto; background: #fff; border: 1px solid #a0aec0;}
+
+        .process-box { background: #fff; border: 2px solid #2b6cb0; padding: 15px; border-radius: 8px; font-size: 0.9em; margin-bottom: 20px; }
+        .process-box h3 { margin-top: 0; color: #2b6cb0; border-bottom: 1px solid #bee3f8; padding-bottom: 5px; }
+        .process-list { list-style-type: none; padding: 0; margin: 0; }
+        .process-list li { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px dashed #e2e8f0; }
+        .process-list li:last-child { border-bottom: none; }
+        .formula { font-family: "Times New Roman", Times, serif; background: #f7fafc; padding: 4px 8px; border-radius: 4px; display: inline-block; margin-top: 2px; color: #2c5282; font-weight: bold; font-size: 1.05em; }
+        
+        .final-result { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; background: #ebf8ff; padding: 15px; border-radius: 6px; border: 2px solid #90cdf4; font-size: 1.2em; font-weight: bold; color: #2b6cb0; }
+        
+        .manual-override { background: #fff5f5; padding: 10px; border: 1px dashed #feb2b2; margin-bottom: 10px; border-radius: 4px; }
+        .manual-override label { font-size: 0.85em; color: #c53030; font-weight: bold; cursor: pointer;}
+        .manual-inputs { display:flex; gap:5px; margin-top:5px; }
+        .manual-inputs input { width: 30%; padding: 4px; font-size: 0.85em; border: 1px solid #cbd5e0; text-align:right;}
+
+        .table-wrapper { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 10px; page-break-inside: avoid; }
+        .ref-table { flex: 1; min-width: 320px; background: #fff; border-collapse: collapse; font-size: 0.75em; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #cbd5e0; }
+        .ref-table th, .ref-table td { border: 1px solid #cbd5e0; padding: 5px; text-align: center; }
+        .ref-table th { background: #edf2f7; color: #2d3748; }
+        .ref-table caption { font-weight: bold; margin-bottom: 5px; color: #2c5282; text-align: left; }
+
+        #error_banner { display:none; background:#fed7d7; border:2px solid #e53e3e; color:#c53030; padding:15px; margin-bottom:15px; font-weight:bold; border-radius:5px; }
+        
+        /* 印刷時専用サマリー (画面では非表示) */
+        #print_summary { display: none; }
+
+        @media print {
+            .no-print { display: none !important; }
+            #print_summary {
+                display: flex; justify-content: space-around;
+                background: #ebf8ff; border: 2px solid #2b6cb0;
+                padding: 10px; font-size: 1.3em; font-weight: bold;
+                color: #2b6cb0; margin-bottom: 10px;
+                border-radius: 5px;
+            }
+            .grid-layout { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-bottom: 10px; }
+            .card { padding: 6px; font-size: 0.75em; border: 1px solid #000; box-shadow: none; margin-bottom: 0; page-break-inside: avoid; }
+            h2 { font-size: 0.9em; padding: 3px 5px; margin: -6px -6px 6px -6px; }
+            .input-group input, .input-group select { width: 55px; font-size: 0.85em; padding: 1px; border: none; font-weight: bold; }
+            .manual-override { padding: 4px; margin-bottom: 5px; border: 1px solid #000; }
+            .viz-box canvas { max-height: 120px; }
+            @page { margin: 10mm; size: A4 portrait; }
+        }
+    </style>
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body>
+<div class="tool-container">
+    <div id="global-header-container"></div>
+
+<h1>面材張り大壁の詳細計算法 (グレー本 3.3項)</h1>
+
+<div id="print_summary">
+    <div>許容せん断耐力 P<sub>a</sub> = <span id="print_Pa">---</span> kN</div>
+    <div>壁1mあたり &Delta;P<sub>a</sub> = <span id="print_dPa">---</span> kN/m</div>
+</div>
+
+<div class="sticky-header no-print">
+    <div class="upload-area">
+        <strong>📁 JSON読込: </strong><input type="file" id="json_upload" accept=".json" onchange="importData(event)">
+    </div>
+    <div style="display:flex; gap:10px;">
+        <button class="btn-success" onclick="exportData()">💾 入力データを保存</button>
+        <button id="print_btn" class="btn-print" onclick="window.print()">🖨 計算書を印刷 (A4タテ)</button>
+    </div>
+</div>
+
+<div class="alert-box no-print">
+    <h3>⚠ 注意事項 (グレー本 3.3項に基づく)</h3>
+    <ul>
+        <li>本ツールは、<strong>「面材を直接軸材に釘打ちする場合」</strong>の計算方法に準拠しています。</li>
+        <li>下地(胴縁等)を介して打ち付ける場合は、別途「低減係数」の考慮が必要です。</li>
+        <li>この計算法は、特定条件下(へりあき・縁端距離の確保等)でのみ有効です。</li>
+    </ul>
+</div>
+
+<div id="error_banner"></div>
+
+<div class="grid-layout">
+    <!-- 基本設定 -->
+    <div class="card">
+        <h2>壁体の基本条件</h2>
+        <div class="input-group">
+            <label>壁高 H</label>
+            <input type="number" id="H_wall" value="273" step="0.1" oninput="calculate()">
+            <span class="unit">cm</span>
+        </div>
+        <div class="input-group">
+            <label>壁幅 W</label>
+            <input type="number" id="W_wall" value="91" step="0.1" oninput="calculate()">
+            <span class="unit">cm</span>
+        </div>
+        
+        <div style="margin-top:15px; border-top:1px solid #eee; padding-top:10px;">
+            <label style="font-size:0.8em; font-weight:bold; color:#2c5282;">▼面材・釘の選択 (表3.3.1参照)</label>
+            <select id="sel_331" style="width:100%; margin:5px 0;" onchange="apply331()"></select>
+            <div class="input-group"><label>定数 k</label><input type="number" id="k_nail" step="0.01" oninput="calculate()"><span class="unit">kN/cm</span></div>
+            <div class="input-group"><label>面材釘耐力 ΔPv</label><input type="number" id="P_v" step="0.01" oninput="calculate()"><span class="unit">kN</span></div>
+            <div class="input-group"><label>剪断変位 δy</label><input type="number" id="d_y" step="0.01" oninput="calculate()"><span class="unit">cm</span></div>
+            <div class="input-group"><label>剪断変位 δu</label><input type="number" id="d_u" step="0.01" oninput="calculate()"><span class="unit">cm</span></div>
+        </div>
+
+        <div style="margin-top:15px; border-top:1px solid #eee; padding-top:10px;">
+            <label style="font-size:0.8em; font-weight:bold; color:#2c5282;">▼構造用合板の強度 (表3.3.2参照)</label>
+            <select id="sel_332" style="width:100%; margin:5px 0;" onchange="apply332()"></select>
+            <div class="input-group"><label>合板厚 t</label><input type="number" id="t_ply" step="0.1" oninput="calculate()"><span class="unit">cm</span></div>
+            <div class="input-group"><label>剪断弾性係数 G</label><input type="number" id="GB" value="40" step="1" oninput="calculate()"><span class="unit">kN/cm²</span></div>
+            <div class="input-group"><label>剪断強度 τmax</label><input type="number" id="T_max" step="0.01" oninput="calculate()"><span class="unit">kN/cm²</span></div>
+            <div class="input-group"><label>ヤング係数 E1</label><input type="number" id="E1" oninput="calculate()"><span class="unit">kN/cm²</span></div>
+            <div class="input-group"><label>ヤング係数 E2</label><input type="number" id="E2" oninput="calculate()"><span class="unit">kN/cm²</span></div>
+        </div>
+    </div>
+
+    <!-- 面材1 -->
+    <div class="card">
+        <h2>面材1 (下側など)</h2>
+        <div class="manual-override">
+            <label><input type="checkbox" id="m1_manual" onchange="calculate()"> 手入力を優先する (連携データ読込時)</label>
+            <div class="manual-inputs">
+                <input type="number" id="m1_Ixy" step="0.001" placeholder="Ixy" oninput="calculate()">
+                <input type="number" id="m1_Zxy" step="0.001" placeholder="Zxy" oninput="calculate()">
+                <input type="number" id="m1_Cxy" step="0.01" placeholder="Cxy" oninput="calculate()">
+            </div>
+        </div>
+
+        <div class="input-group"><label>面材幅 W<sub>1</sub></label><input type="number" id="m1_W" value="91" step="0.1" oninput="calculate()"><span class="unit">cm</span></div>
+        <div class="input-group"><label>面材高 H<sub>1</sub></label><input type="number" id="m1_H" value="273" step="0.1" oninput="calculate()"><span class="unit">cm</span></div>
+        <div class="input-group"><label>へりあき e</label><input type="number" id="m1_e" value="1.5" step="0.1" oninput="calculate()"><span class="unit">cm</span></div>
+        <div class="input-group"><label>軸材縁端距離</label><input type="number" id="m1_frame_e" value="3.0" step="0.1" oninput="calculate()"><span class="unit">cm</span></div>
+        <div class="input-group"><label>縦胴縁ピッチ</label><input type="number" id="m1_Pv" value="45.5" step="0.1" oninput="calculate()"><span class="unit">cm</span></div>
+        <div class="input-group">
+            <label>釘打ちパターン</label>
+            <select id="m1_pattern" onchange="calculate()">
+                <option value="all">四方打ち＋中通り</option>
+                <option value="yama">三方打ち(上部なし)</option>
+                <option value="kawa">縦のみ(川の字)</option>
+                <option value="hi">縦外周のみ(日の字)</option>
+                <option value="kuchi">外周のみ(口の字)</option>
+            </select>
+        </div>
+        <div class="input-group"><label>外周釘ピッチ</label><input type="number" id="m1_outer" value="7.5" step="0.5" oninput="calculate()"><span class="unit">cm</span></div>
+        <div class="input-group"><label>中通り釘ピッチ</label><input type="number" id="m1_inner" value="15" step="1" oninput="calculate()"><span class="unit">cm</span></div>
+
+        <div class="viz-box">
+            <div id="m1_count" style="font-size:0.85em; font-weight:bold; color:#2d3748; margin-bottom:5px;">N = ---</div>
+            <canvas id="m1_canvas" width="200" height="150"></canvas>
+        </div>
+    </div>
+
+    <!-- 面材2 (オプション) -->
+    <div class="card">
+        <h2>
+            <label><input type="checkbox" id="use_m2" onchange="toggleM2(); calculate();"> 面材2 (上側・追記分)</label>
+        </h2>
+        <div id="m2_inputs" style="display:none;">
+            <div class="manual-override">
+                <label><input type="checkbox" id="m2_manual" onchange="calculate()"> 手入力を優先する (連携データ読込時)</label>
+                <div class="manual-inputs">
+                    <input type="number" id="m2_Ixy" step="0.001" placeholder="Ixy" oninput="calculate()">
+                    <input type="number" id="m2_Zxy" step="0.001" placeholder="Zxy" oninput="calculate()">
+                    <input type="number" id="m2_Cxy" step="0.01" placeholder="Cxy" oninput="calculate()">
+                </div>
+            </div>
+
+            <div class="input-group"><label>面材幅 W<sub>2</sub></label><input type="number" id="m2_W" value="91" step="0.1" oninput="calculate()"><span class="unit">cm</span></div>
+            <div class="input-group"><label>面材高 H<sub>2</sub></label><input type="number" id="m2_H" value="91" step="0.1" oninput="calculate()"><span class="unit">cm</span></div>
+            <div class="input-group"><label>へりあき e<sub>2</sub></label><input type="number" id="m2_e" value="1.5" step="0.1" oninput="calculate()"><span class="unit">cm</span></div>
+            <div class="input-group"><label>軸材縁端距離</label><input type="number" id="m2_frame_e" value="3.0" step="0.1" oninput="calculate()"><span class="unit">cm</span></div>
+            <div class="input-group"><label>縦胴縁ピッチ</label><input type="number" id="m2_Pv" value="45.5" step="0.1" oninput="calculate()"><span class="unit">cm</span></div>
+            <div class="input-group">
+                <label>釘打ちパターン</label>
+                <select id="m2_pattern" onchange="calculate()">
+                    <option value="all">四方打ち</option>
+                    <option value="yama">三方打ち</option>
+                </select>
+            </div>
+            <div class="input-group"><label>外周釘ピッチ</label><input type="number" id="m2_outer" value="15" step="1" oninput="calculate()"><span class="unit">cm</span></div>
+            <div class="input-group"><label>中通り釘ピッチ</label><input type="number" id="m2_inner" value="15" step="1" oninput="calculate()"><span class="unit">cm</span></div>
+            
+            <div class="viz-box">
+                <div id="m2_count" style="font-size:0.85em; font-weight:bold; color:#2d3748; margin-bottom:5px;">N = ---</div>
+                <canvas id="m2_canvas" width="200" height="150"></canvas>
+            </div>
+        </div>
+        <p id="m2_placeholder" style="font-size:0.8em; color:#718096; text-align:center; margin-top:50px;">面材が複数枚に分かれる場合に<br>チェックを入れてください。</p>
+        <script>function toggleM2() { 
+            const checked = document.getElementById('use_m2').checked;
+            document.getElementById('m2_inputs').style.display = checked ? 'block' : 'none';
+            document.getElementById('m2_placeholder').style.display = checked ? 'none' : 'block';
+        }</script>
+    </div>
+</div>
+
+<div class="final-result">
+    <div>許容せん断耐力 P<sub>a</sub> = <span id="res_Pa" style="font-size:1.4em;">---</span> kN</div>
+    <div style="border-left: 2px solid #90cdf4; padding-left: 15px;">
+        壁1mあたり &Delta;P<sub>a</sub> = <span id="res_dPa" style="font-size:1.4em;">---</span> kN/m
+    </div>
+</div>
+
+<div class="process-box" style="margin-top:20px;">
+    <h3>計算過程のサマリー / 根拠</h3>
+    <ul id="process_list" class="process-list">
+        <li>数値を入力すると、こちらに詳細な計算プロセスが表示されます。</li>
+    </ul>
+</div>
+
+<div class="table-wrapper no-print">
+    <table id="tbl_331" class="ref-table"></table>
+    <table id="tbl_331_novo" class="ref-table"></table>
+    <table id="tbl_332" class="ref-table"></table>
+</div>
+
+<script src="../js/common.js"></script>
+<script src="../js/shosai-okabe.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        initApp();
+    });
+</script>
+</div>
+</body>
+</html>

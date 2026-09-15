@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>根太工法 水平構面/屋根構面の詳細計算</title>
+    <script>
+        if (window.location.protocol !== 'file:') {
+            fetch('/api/check_auth.php')
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (data && data.authenticated === false) {
+                        window.location.replace('/login.html');
+                    }
+                })
+                .catch(err => console.warn("Auth check failed:", err));
+        }
+    </script>
+    <link rel="stylesheet" href="../css/common.css">
+    <style>
+        body { font-family: "Noto Sans JP", sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+        h1, h2, h3 { border-bottom: 2px solid #555; padding-bottom: 5px; }
+        .section { margin-bottom: 30px; padding: 20px; background-color: #f9f9f9; border: 1px solid #ddd; border-radius: 5px; }
+        
+        /* フォーム系 */
+        .checkbox-list label { display: block; margin-bottom: 8px; cursor: pointer; }
+        .input-group { margin-bottom: 15px; display: flex; align-items: center; }
+        .input-group label { width: 280px; font-weight: bold; }
+        .input-group select, .input-group input[type="number"] { padding: 5px; width: 350px; font-size: 14px; box-sizing: border-box; }
+        .input-group input[type="number"] { width: 150px; }
+        .radio-group label { margin-right: 15px; cursor: pointer; font-weight: normal; width: auto; }
+        
+        /* ボタンとヘッダー操作 */
+        .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .btn-group button { margin-right: 10px; }
+        button { padding: 10px 20px; background-color: #0056b3; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin-top: 10px; }
+        button:hover { background-color: #004494; }
+        .btn-print { background-color: #28a745; }
+        .btn-print:hover { background-color: #218838; }
+        .btn-json { background-color: #17a2b8; }
+        .btn-json:hover { background-color: #138496; }
+        .btn-reset { background-color: #6c757d; font-size: 14px; padding: 6px 12px; }
+        .btn-reset:hover { background-color: #5a6268; }
+        .save-status { font-size: 14px; color: #888; margin-left: 15px; display: inline-block; }
+
+        /* 結果表示エリア */
+        #results { margin-top: 30px; display: none; }
+        .result-step { margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed #ccc; break-inside: avoid; page-break-inside: avoid; }
+        .result-step strong { display: block; margin-bottom: 5px; color: #0056b3; }
+        .formula { display: inline-block; background-color: #eef5f9; padding: 4px 10px; margin-bottom: 5px; border-left: 3px solid #0056b3; font-family: monospace; font-size: 15px;}
+        canvas { background-color: #fff; border: 1px solid #333; margin-top: 10px; display: block; break-inside: avoid; }
+
+        /* 最終結果のハイライト表示 */
+        #final-highlight {
+            display: none;
+            background-color: #fff3f3;
+            border: 3px solid #d9534f;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+        #final-highlight .label { font-size: 18px; font-weight: bold; color: #333; }
+        #final-highlight .sub-label { font-size: 14px; color: #555; margin-top: 5px; }
+        #final-highlight .value { font-size: 32px; font-weight: bold; color: #d9534f; margin: 10px 0; }
+        #final-highlight .judge { font-size: 18px; font-weight: bold; }
+
+        /* 印刷用CSS (A4縦出力用) */
+        @media print {
+            @page { size: A4 portrait; margin: 15mm; }
+            body { max-width: 100%; padding: 0; margin: 0; background-color: #fff; }
+            .no-print { display: none !important; }
+            .section { border: 1px solid #ccc; background-color: #fff; padding: 15px; margin-bottom: 20px; break-inside: avoid; }
+            h1 { font-size: 24px; }
+            h2 { font-size: 20px; }
+        }
+    </style>
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body>
+<div class="tool-container">
+    <div id="global-header-container"></div>
+
+    <div class="controls no-print">
+        <div class="btn-group">
+            <button class="btn-print" onclick="window.print()">🖨️ PDF出力</button>
+            <button class="btn-json" onclick="exportJSON()">💾 JSON保存</button>
+            <span class="save-status" id="save-status"></span>
+        </div>
+        <button class="btn-reset" onclick="resetState()">初期状態に戻す</button>
+    </div>
+
+    <h1>根太工法 水平構面/屋根構面の詳細計算</h1>
+    <div id="global-header-container"></div>
+    
+    <div class="section">
+        <h2>適用範囲の確認</h2>
+        <div class="checkbox-list" id="checkbox-container">
+            <label><input type="checkbox" id="chk1" disabled> ① 面内許容耐力の上限：計算後に確認 (≦13.72kN/m)</label>
+            <label><input type="checkbox" id="chk2" checked onchange="saveState()"> ② 面材釘のデータ：表 3.3.1 を引用 OK</label>
+            <label><input type="checkbox" id="chk3" checked onchange="saveState()"> ③ 釘の種類：N50 OK / 面材厚：12mm≧12mm OK / 面材の規格・樹種：JAS2級・ベイマツ OK</label>
+            <label><input type="checkbox" id="chk4" checked onchange="saveState()"> ④ 釘配置：75mm (1列配置) ≦150mm (1列配置) OK / 釘のへりあき：10mm OK</label>
+            <label><input type="checkbox" id="chk5" checked onchange="saveState()"> ⑤ 根太と面材の継目はずらす：OK</label>
+            <label><input type="checkbox" id="chk6" checked onchange="saveState()"> ⑥ 根太の断面：45×105mm≧45×60mm OK / 根太のピッチ：455mm≦500mm OK</label>
+        </div>
+    </div>
+
+    <div id="final-highlight">
+        <div class="label" id="highlight-title">水平構面の単位長さあたりの許容せん断耐力 ΔQa</div>
+        <div class="sub-label" id="highlight-sub"></div>
+        <div class="value" id="highlight-value">-- kN/m</div>
+        <div class="judge" id="highlight-judge">--</div>
+    </div>
+
+    <div class="section no-print">
+        <h2>条件設定</h2>
+        
+        <div class="input-group">
+            <label>計算モード:</label>
+            <div class="radio-group">
+                <label><input type="radio" name="calc-mode" value="floor" checked onchange="toggleRoofMode(); saveState();"> 床面モード</label>
+                <label><input type="radio" name="calc-mode" value="roof" onchange="toggleRoofMode(); saveState();"> 屋根面モード</label>
+            </div>
+        </div>
+
+        <div class="input-group" id="roof-pitch-group" style="display: none; background-color: #eef5f9; padding: 10px; border-radius: 5px;">
+            <label style="color: #0056b3;">屋根勾配 (寸):</label>
+            <input type="number" id="roof-pitch" step="0.1" min="0" max="30" value="5.0" onchange="saveState();">
+            <span style="margin-left: 10px; font-size: 14px;">(例: 3.5, 7.8)</span>
+        </div>
+        
+        <div class="input-group">
+            <label>根太(垂木)端部の接合仕様:</label>
+            <select id="joint-type" onchange="updateArrangement(); saveState();">
+                <option value="1">転ばし根太を梁に 2-N75 斜め釘打ち</option>
+                <option value="2">転ばし根太を梁に 3-N75 斜め釘打ち</option>
+                <option value="3" selected>根太を梁の根太堀に半分落とし、2-N75斜め釘打ち</option>
+            </select>
+        </div>
+        <div class="input-group">
+            <label>釘ピッチ (@):</label>
+            <select id="nail-pitch" onchange="updateArrangement(); saveState();">
+                <option value="150" selected>150 mm</option>
+                <option value="100">100 mm</option>
+                <option value="75">75 mm</option>
+            </select>
+        </div>
+        <div class="input-group">
+            <label>釘配置パターン:</label>
+            <select id="nail-pattern" onchange="updateArrangement(); saveState();">
+                <option value="川型" selected>川型 (横置)</option>
+                <option value="山型">山型 (横置)</option>
+                <option value="日型">日型 (横置)</option>
+            </select>
+        </div>
+        
+        <p><strong>配列図プレビュー (1820×910 / 根太ピッチ455)</strong></p>
+        <canvas id="patternCanvas" width="440" height="240"></canvas>
+        <p id="arrangement-data" style="color: #d9534f; font-weight: bold;"></p>
+
+        <button onclick="calculate(); saveState();" style="width: 100%; font-size: 18px; margin-top: 20px;">計算実行</button>
+    </div>
+
+    <div id="results" class="section">
+        <h2>計算結果詳細</h2>
+        <div id="output"></div>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/neta.js"></script>
+</div>
+</body>
+</html>

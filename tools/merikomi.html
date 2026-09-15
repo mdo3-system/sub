@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>土台プレートII 許容めり込み耐力 検討書</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+
+    <style>
+        body { font-family: "Helvetica Neue", Arial, sans-serif; color: #333; line-height: 1.4; margin: 0; padding: 0; }
+        h1 { color: #1a365d; font-size: 1.8em; border-bottom: 3px solid #2a4365; padding-bottom: 10px; margin-bottom: 20px; text-align: center; }
+        
+        .controls { background: #fff; padding: 15px; border-radius: 6px; border: 1px solid #cbd5e0; margin-bottom: 15px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        
+        .btn { padding: 8px 16px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 0.95em; }
+        .btn-primary { background: #3182ce; color: white; }
+        .btn-primary:hover { background: #2b6cb0; }
+        .btn-success { background: #38a169; color: white; }
+        .btn-success:hover { background: #2f855a; }
+        .btn-print { background: #2d3748; color: white; font-size: 1em; }
+        .btn-print:hover { background: #1a202c; }
+        .btn-danger { background: #e53e3e; color: white; padding: 4px 8px; font-size: 0.8em; border-radius: 3px; }
+        .btn-danger:hover { background: #c53030; }
+        
+        .status-box { padding: 10px; border-radius: 4px; font-weight: bold; text-align: center; font-size: 1em; margin-top: 5px; }
+        .status-ok { background-color: #c6f6d5; color: #22543d; border: 1px solid #9ae6b4; }
+        .status-ng { background-color: #fed7d7; color: #742a2a; border: 1px solid #feb2b2; }
+        
+        .upload-area { background: #edf2f7; padding: 10px; border-radius: 4px; border: 1px dashed #a0aec0; flex: 1; min-width: 300px; }
+        .loading { display: none; color: #d69e2e; font-weight: bold; margin-left: 10px; }
+
+        table { width: 100%; border-collapse: collapse; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 2px solid #2a4365; }
+        th, td { border: 1px solid #cbd5e0; padding: 6px 4px; text-align: center; vertical-align: middle; font-size: 0.9em; }
+        th { background-color: #edf2f7; color: #2d3748; font-weight: bold; }
+        
+        .val-box { display: flex; justify-content: space-between; align-items: center; margin: 2px 0; font-family: monospace; font-size: 1.05em; }
+        .val-label { font-size: 0.8em; color: #718096; width: 30px; text-align: left; }
+        
+        input[type="number"], input[type="text"], select { width: 100%; padding: 3px; border: 1px solid #a0aec0; border-radius: 3px; font-size: 0.95em; text-align: right; background-color: #f8fafc; box-sizing: border-box; }
+        input[type="text"] { text-align: center; }
+        select { text-align: left; cursor: pointer; margin-bottom: 2px; }
+        
+        .s-type { width: 55px; font-size: 0.8em; padding: 2px; margin-right: 4px; text-align: center; }
+
+        .judge-ok { color: #38a169; font-weight: bold; }
+        .judge-ng { color: #e53e3e; font-weight: bold; }
+
+        .ref-note { margin-top: 15px; font-size: 0.8em; color: #4a5568; background: #fff; padding: 10px; border-radius: 4px; border: 1px solid #e2e8f0; }
+
+        /* --- 印刷用スタイル (A4 タテ) --- */
+        @media print {
+            body { background: #fff; margin: 0; padding: 0; font-size: 8.5pt; max-width: 100%; }
+            .no-print { display: none !important; }
+            h1 { font-size: 12pt; border-bottom: 2px solid #000; margin-bottom: 8px; }
+            
+            table { box-shadow: none; border: 2px solid #000; width: 100%; }
+            th, td { border: 1px solid #000; padding: 4px 2px; }
+            th { background-color: #eee !important; color: #000; -webkit-print-color-adjust: exact; }
+            
+            input, select { border: none; background: transparent; font-weight: bold; padding: 0; color: #000; -webkit-appearance: none; -moz-appearance: none; appearance: none; }
+            select::-ms-expand { display: none; }
+            .s-type { margin-right: 2px; }
+            
+            .val-box { font-size: 1em; }
+            .judge-ok { color: #000; }
+            
+            /* A4 縦書き (portrait) の指定 */
+            @page { margin: 10mm 12mm; size: A4 portrait; }
+        }
+    </style>
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body>
+<div class="tool-container">
+    <div id="global-header-container"></div>
+    <h1 class="no-print">土台プレートII 許容めり込み耐力 検討書</h1>
+
+    <div class="controls no-print">
+        <div style="display:flex; gap:10px; flex-wrap:wrap; width:100%;">
+            <div class="upload-area">
+                <strong>📄 PDFからNG柱を抽出</strong><br>
+                <input type="file" id="pdf_upload" accept="application/pdf" style="margin-top:5px; width:auto;">
+                <span id="loading_msg" class="loading">解析中...</span>
+            </div>
+            
+            <div class="upload-area" style="background:#e6fffa; border-color:#38b2ac;">
+                <strong>📁 保存ファイルを読み込む (JSON)</strong><br>
+                <input type="file" id="json_upload" accept=".json" style="margin-top:5px; width:auto;" onchange="importData(event)">
+            </div>
+            
+            <div style="flex:1; min-width:200px; display:flex; flex-direction:column; gap:8px;">
+                <div style="display:flex; gap:8px; justify-content:flex-end;">
+                    <button class="btn btn-primary" onclick="addEmptyRow()">+ 手動で行を追加</button>
+                    <button class="btn btn-success" onclick="exportData()">💾 状態を保存</button>
+                </div>
+                <button class="btn btn-print" onclick="attemptPrint()" style="align-self:flex-end;">🖨 A4縦で印刷する</button>
+            </div>
+        </div>
+        
+        <div style="width:100%;">
+            <div id="overall_status" class="status-box status-ok">データがありません。PDFまたは保存ファイルを読み込んでください。</div>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 5%;">階</th>
+                <th style="width: 9%;">位置</th>
+                <th style="width: 22%;">発生めり込み力 (N)<br><span style="font-size:0.8em; font-weight:normal;">[長期] / [短期]</span></th>
+                <th style="width: 28%;">使用プレート・受材仕様<br><span style="font-size:0.8em; font-weight:normal;">(幅 / 部位 / 樹種)</span></th>
+                <th style="width: 16%;">プレート許容耐力 (N)<br><span style="font-size:0.8em; font-weight:normal;">[長期] / [短期]</span></th>
+                <th style="width: 10%;">判定</th>
+                <th style="width: 5%;" class="no-print">操作</th>
+            </tr>
+        </thead>
+        <tbody id="table_body">
+            </tbody>
+    </table>
+
+    <div class="ref-note">
+        <strong>【判定基準と計算根拠】</strong><br>
+        1. 発生めり込み力（長期・短期）が、対応する「土台プレートII」の許容耐力を下回っていることを確認する。<br>
+        2. 許容耐力は、株式会社タナカ「土台プレートII 構造計算書（2008.6.1）」の表5(105用)および表6(120用)に基づく。<br>
+        3. 樹種分類: 【すぎ類】スギ・オウシュウアカマツ・スプルース等、【ひのき類】ヒノキ等、【あかまつ類】ベイマツ・アカマツ等。<br>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/merikomi.js"></script>
+</div>
+</body>
+</html>

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>根太無し工法（直張り）床水平構面の許容せん断耐力計算書</title>
+    <script>
+        // 画面が描画される前に認証状態をチェック
+        fetch('/api/check_auth.php')
+            .then(res => res.json())
+            .then(data => {
+                if (!data.authenticated) {
+                    window.location.replace('/login.html');
+                }
+            })
+            .catch(() => {
+                window.location.replace('/login.html');
+            });
+    </script>
+    <link rel="stylesheet" href="../css/common.css">
+    <style>
+        /* 画面・印刷共通の基本スタイル */
+        body {
+            font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+            background-color: #f0f4f8;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.5;
+        }
+        .container {
+            max-width: 850px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 40px;
+            border-radius: 4px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        h1 { font-size: 1.5rem; text-align: center; margin-bottom: 20px; }
+        h2 { font-size: 1.1rem; border-left: 4px solid #2c3e50; padding-left: 10px; margin-top: 25px; border-bottom: 1px solid #ccc; page-break-after: avoid; }
+        
+        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 0.85rem; }
+        th, td { border: 1px solid #000; padding: 6px; text-align: center; vertical-align: middle; }
+        th { background-color: #f2f2f2; }
+        .text-left { text-align: left; }
+        
+        .input-group { margin-bottom: 10px; display: flex; align-items: center; }
+        .input-group label { width: 180px; font-weight: bold; }
+        .input-group input[type="text"] { padding: 5px; border: 1px solid #999; border-radius: 3px; font-size: 1rem; width: 300px; }
+        
+        .checklist { display: flex; flex-wrap: wrap; gap: 10px; font-size: 0.85rem; margin-bottom: 20px;}
+        .checklist label { width: 48%; }
+        
+        /* SVG凡例図スタイル */
+        .svg-legend { width: 160px; height: auto; display: block; margin: 5px auto; }
+        
+        /* 計算ステップ表示用 */
+        .step { margin-bottom: 15px; }
+        .formula { font-family: "Courier New", Courier, monospace; background: #fdfdfd; padding: 10px; border: 1px solid #eee; }
+        .highlight { font-weight: bold; font-size: 1.1rem; border: 2px solid #000; padding: 10px; text-align: center; margin-top: 15px; }
+        
+        .pitch-info {
+            background: #e8f4f8; border: 1px solid #bce8f1; padding: 10px; border-radius: 4px;
+            margin-bottom: 15px; font-weight: bold; display: flex; justify-content: space-around;
+        }
+        
+        /* ヘッダー帳票エリア */
+        .report-header {
+            display: flex; justify-content: space-between; align-items: flex-end;
+            border-bottom: 3px double #000; padding-bottom: 10px; margin-bottom: 20px;
+        }
+        .report-header .project-name { font-size: 1.4rem; font-weight: bold; }
+        .report-header .result-summary { font-size: 1.2rem; font-weight: bold; border: 2px solid #000; padding: 5px 15px; background: #ffffcc;}
+        
+        /* UIツールバー（印刷時は非表示） */
+        .toolbar {
+            background: #2c3e50; padding: 15px; border-radius: 4px; margin-bottom: 20px;
+            display: flex; gap: 10px; align-items: center; justify-content: center;
+        }
+        .toolbar button { background: #fff; color: #2c3e50; border: none; padding: 8px 15px; font-weight: bold; cursor: pointer; border-radius: 3px; }
+        .toolbar button:hover { background: #ecf0f1; }
+        .toolbar button.primary { background: #e74c3c; color: #fff; }
+        .toolbar button.primary:hover { background: #c0392b; }
+        .file-input-wrapper { display: inline-block; position: relative; overflow: hidden; }
+        .file-input-wrapper input[type=file] { font-size: 100px; position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; }
+        
+        /* 印刷時ページまたぎ制御用クラス */
+        .keep-together { page-break-inside: avoid; break-inside: avoid; margin-bottom: 20px; }
+        
+        /* 印刷用スタイル (@media print) */
+        @media print {
+            @page { size: A4 portrait; margin: 15mm 10mm; }
+            body { background: #fff; padding: 0; font-size: 10.5pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .container { box-shadow: none; padding: 0; width: 100%; max-width: 100%; }
+            .no-print { display: none !important; }
+            .formula { background: none; border: none; padding: 5px 0; }
+            
+            table, tr, td, th, tbody, thead { page-break-inside: avoid; break-inside: avoid; }
+            .step, .checklist, .input-group, .pitch-info { page-break-inside: avoid; break-inside: avoid; }
+            h2 { page-break-after: avoid; break-after: avoid; }
+            .highlight { page-break-inside: avoid; break-inside: avoid; }
+        }
+        .btn-back:hover { background: #2d3748 !important; }
+    </style>
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body>
+<div class="tool-container">
+    <div id="global-header-container"></div>
+    <div class="container">
+    
+        <div id="inputSection">
+            <div class="input-group">
+                <label>物件名:</label>
+                <input type="text" id="inProjectName" value="〇〇邸 新築工事">
+            </div>
+    
+            <h2>適用範囲の確認</h2>
+            <div class="checklist">
+                <label><input type="checkbox" id="chk1" checked> ①耐力上限：13.72kN/m以下</label>
+                <label><input type="checkbox" id="chk2" checked> ②面材と釘の組合せ：表3.3.1</label>
+                <label><input type="checkbox" id="chk3" checked> ③面材種類・釘の規定準拠</label>
+                <label><input type="checkbox" id="chk4" checked> ④釘ピッチ75mm以上・へりあき遵守</label>
+                <label><input type="checkbox" id="chk5" checked> ⑤釘配置：四周打ち（受け材不要）</label>
+                <label><input type="checkbox" id="chk6" checked> ⑥端部横架材・継目材の断面規定</label>
+                <label><input type="checkbox" id="chk7" checked> ⑦中間材のピッチ規定</label>
+                <label><input type="checkbox" id="chk8" checked> ⑧中間材の釘列評価</label>
+            </div>
+    
+            <div class="keep-together">
+                <h2>1) 面材釘の1面せん断データ (表3.3.1)</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">選択</th>
+                            <th>面材</th>
+                            <th>釘</th>
+                            <th>k [kN/cm]</th>
+                            <th>δv [cm]</th>
+                            <th>δu [cm]</th>
+                            <th>ΔPv [kN]</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><input type="radio" name="nail" value='{"t":1.2, "k":4.80, "dv":0.21, "du":1.53, "dPv":0.98}' onchange="updateSection2()"></td>
+                            <td rowspan="4">構造用合板<br>12mm</td>
+                            <td class="text-left">鉄丸釘 N-50</td><td>4.80</td><td>0.21</td><td>1.53</td><td>0.98</td>
+                        </tr>
+                        <tr>
+                            <td><input type="radio" name="nail" value='{"t":1.2, "k":6.29, "dv":0.21, "du":1.89, "dPv":1.31}' onchange="updateSection2()"></td>
+                            <td class="text-left">鉄丸釘 N-65</td><td>6.29</td><td>0.21</td><td>1.89</td><td>1.31</td>
+                        </tr>
+                        <tr>
+                            <td><input type="radio" name="nail" value='{"t":1.2, "k":6.34, "dv":0.19, "du":1.81, "dPv":1.21}' onchange="updateSection2()"></td>
+                            <td class="text-left">太め鉄丸釘(CN)50</td><td>6.34</td><td>0.19</td><td>1.81</td><td>1.21</td>
+                        </tr>
+                        <tr>
+                            <td><input type="radio" name="nail" value='{"t":1.2, "k":8.26, "dv":0.25, "du":2.17, "dPv":2.05}' onchange="updateSection2()"></td>
+                            <td class="text-left">太め鉄丸釘(CN)65</td><td>8.26</td><td>0.25</td><td>2.17</td><td>2.05</td>
+                        </tr>
+                        <tr>
+                            <td><input type="radio" name="nail" value='{"t":2.4, "k":6.51, "dv":0.25, "du":1.71, "dPv":1.62}' onchange="updateSection2()"></td>
+                            <td rowspan="3">構造用合板<br>24mm / 28mm</td>
+                            <td class="text-left">鉄丸釘 N-75</td><td>6.51</td><td>0.25</td><td>1.71</td><td>1.62</td>
+                        </tr>
+                        <tr>
+                            <td><input type="radio" name="nail" value='{"t":2.4, "k":8.78, "dv":0.15, "du":1.32, "dPv":1.31}' onchange="updateSection2()"></td>
+                            <td class="text-left">太め鉄丸釘(CN)65</td><td>8.78</td><td>0.15</td><td>1.32</td><td>1.31</td>
+                        </tr>
+                        <tr>
+                            <td><input type="radio" name="nail" value='{"t":2.4, "k":10.13, "dv":0.18, "du":2.14, "dPv":1.85}' checked onchange="updateSection2()"></td>
+                            <td class="text-left">太め鉄丸釘(CN)75</td><td>10.13</td><td>0.18</td><td>2.14</td><td>1.85</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+    
+            <div class="keep-together">
+                <h2>2) 面材のせん断弾性係数や寸法等の数値を用意する</h2>
+                <div class="formula" style="background-color: #fdfdfd; padding: 15px; border-left: 3px solid #3498db;">
+                    表3.3.1 および選択した面材より：<br><br>
+                    ・面材のせん断弾性係数 <b>G<sub>B</sub> = 40 [kN/cm²]</b><br>
+                    ・面材の厚さ <b>t = <span id="disp-t">2.4</span> [cm]</b>
+                </div>
+            </div>
+    
+            <div class="keep-together">
+                <h2>3) 釘の配列諸定数</h2>
+                <div class="pitch-info no-print" style="padding: 20px; flex-direction: column; align-items: flex-start; gap: 15px;">
+                    <div style="display: flex; gap: 20px; align-items: center; width: 100%;">
+                        <div style="flex: 1;">
+                            <label style="display: block; margin-bottom: 5px; font-size: 0.8rem; color: #666;">釘ピッチ</label>
+                            <select id="nailPitch" style="width: 100%; padding: 8px; font-size: 1rem;" onchange="drawLayout(); calculate();">
+                                <option value="150" selected>@150</option>
+                                <option value="100">@100</option>
+                                <option value="75">@75</option>
+                            </select>
+                        </div>
+                        <div style="flex: 1;">
+                            <label style="display: block; margin-bottom: 5px; font-size: 0.8rem; color: #666;">配置パターン</label>
+                            <select id="nailPattern" style="width: 100%; padding: 8px; font-size: 1rem;" onchange="drawLayout(); calculate();">
+                                <option value="川型">川型</option>
+                                <option value="山型">山型</option>
+                                <option value="日型" selected>日型</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div id="disp-layout" style="background: #fff; padding: 10px; border: 1px solid #ddd; width: 100%; box-sizing: border-box; text-align: center; font-size: 1rem; color: #2c3e50;">
+                        Ixy: - &nbsp;&nbsp; Zxy: - &nbsp;&nbsp; Cxy: -
+                    </div>
+                </div>
+    
+                <div class="canvas-wrapper" style="text-align: center; background: #f9f9f9; padding: 15px; border: 1px solid #eee; margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 10px; font-weight: bold; font-size: 0.85rem; color: #555;">釘配置イメージ（面材サイズ 1820×910 / 支持材ピッチ @910）</label>
+                    <canvas id="layoutCanvas" width="400" height="200" style="background: #fff; border: 1px solid #ccc; max-width: 100%; height: auto;"></canvas>
+                </div>
+            </div>
+        </div>
+    
+        <div id="outputSection" style="display: none;">
+            <h2>詳細計算過程</h2>
+            <div id="calcSteps"></div>
+        </div>
+    
+    </div>
+    
+    <script src="../js/common.js"></script>
+    <script src="../js/shosai-yuka-kihon.js"></script>
+</div>
+</body>
+</html>

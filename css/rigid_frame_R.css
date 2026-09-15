@@ -1,0 +1,335 @@
+@charset "UTF-8";
+
+/* =========================================
+   片持ち庇（引きボルト式接合部）固有スタイル
+   ========================================= */
+
+.container {
+    max-width: 1000px;
+    margin: auto;
+    background: #fff;
+    padding: 20px 30px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+    border-radius: 8px;
+}
+
+h1 {
+    font-size: 1.5em;
+    border-bottom: 2px solid #2d3748;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+    text-align: center;
+    color: #1a365d;
+}
+
+h2 {
+    font-size: 1.1em;
+    color: #2d3748;
+    margin-top: 25px;
+    border-left: 5px solid #3182ce;
+    padding-left: 10px;
+    background: transparent;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+/* ツールバーとコントロール */
+.toolbar {
+    background: #f7fafc;
+    padding: 12px 18px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+/* フォームグループ */
+.form-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.input-item {
+    flex: 1;
+    min-width: 220px;
+    display: flex;
+    flex-direction: column;
+}
+
+.input-item label {
+    font-size: 0.85em;
+    font-weight: bold;
+    color: #4a5568;
+    margin-bottom: 6px;
+}
+
+.input-item input,
+.input-item select {
+    padding: 8px 12px;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    font-size: 0.95em;
+    background-color: #fff;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.input-item input:focus,
+.input-item select:focus {
+    border-color: #3182ce;
+    background-color: #fffde7;
+    box-shadow: 0 0 0 1px rgba(49, 130, 206, 0.2);
+}
+
+.input-item input[readonly] {
+    background-color: #edf2f7;
+    color: #4a5568;
+    cursor: not-allowed;
+}
+
+/* 計算ボタン */
+.btn-calc {
+    background-color: #3182ce;
+    color: #fff;
+    border: none;
+    padding: 14px;
+    font-size: 1.05em;
+    border-radius: 6px;
+    cursor: pointer;
+    width: 100%;
+    font-weight: bold;
+    transition: background 0.2s;
+    margin-top: 20px;
+}
+
+.btn-calc:hover {
+    background-color: #2b6cb0;
+}
+
+/* 画面用結果プレビュー領域 */
+.results-ui {
+    margin-top: 25px;
+    padding: 20px;
+    background-color: #ebf8ff;
+    border-radius: 6px;
+    border: 1px solid #bee3f8;
+}
+
+.results-ui h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 1.05em;
+    color: #2b6cb0;
+    border-bottom: 1px solid #bee3f8;
+    padding-bottom: 8px;
+}
+
+.result-item-ui {
+    font-size: 0.95em;
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px dashed #bee3f8;
+    padding-bottom: 6px;
+}
+
+.result-item-ui:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.result-item-ui span:first-child {
+    font-weight: bold;
+    color: #4a5568;
+}
+
+.ok {
+    color: #38a169;
+    font-weight: bold;
+}
+
+.ng {
+    color: #e53e3e;
+    font-weight: bold;
+}
+
+.btn-back:hover {
+    background: #2d3748 !important;
+}
+
+/* =========================================
+   印刷用スタイル (@media print)
+   ========================================= */
+@media screen {
+    .print-only {
+        display: none;
+    }
+}
+
+@media print {
+    @page {
+        size: A4 portrait;
+        margin: 15mm 15mm;
+    }
+
+    body {
+        margin: 0;
+        background: none;
+        font-family: 'MS Mincho', 'ＭＳ 明朝', serif;
+        font-size: 9.5pt;
+        color: #000;
+    }
+
+    .container {
+        box-shadow: none;
+        padding: 0;
+        max-width: none;
+        border: none;
+    }
+
+    .no-print {
+        display: none !important;
+    }
+
+    #global-print-header {
+        display: none !important;
+    }
+
+    .print-only {
+        display: block;
+    }
+
+    h1.print-title {
+        text-align: center;
+        font-size: 15pt;
+        border-bottom: 2px solid #000;
+        padding-bottom: 6px;
+        margin-bottom: 15px;
+        font-family: 'MS Gothic', 'ＭＳ ゴシック', sans-serif;
+    }
+
+    h2.print-h2 {
+        font-size: 11pt;
+        border-bottom: 1px solid #000;
+        padding-bottom: 3px;
+        margin-top: 20px;
+        margin-bottom: 10px;
+        page-break-after: avoid;
+        font-family: 'MS Gothic', 'ＭＳ ゴシック', sans-serif;
+    }
+
+    .doc-info {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 15px;
+    }
+
+    .doc-info p {
+        margin: 4px 0;
+    }
+
+    .doc-info-right {
+        text-align: right;
+        border: 1px solid #000;
+        padding: 8px 12px;
+        min-width: 240px;
+    }
+
+    /* 報告書テーブル */
+    table.report-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 15px;
+        page-break-inside: avoid;
+    }
+
+    table.report-table th,
+    table.report-table td {
+        border: 1px solid #000;
+        padding: 5px 8px;
+    }
+
+    table.report-table th {
+        background-color: #f2f2f2 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        width: 35%;
+        text-align: left;
+        font-family: 'MS Gothic', 'ＭＳ ゴシック', sans-serif;
+        font-weight: normal;
+    }
+
+    .judgment-box {
+        border: 2px solid #000;
+        padding: 10px;
+        text-align: center;
+        font-size: 12pt;
+        font-weight: bold;
+        margin-top: 15px;
+        page-break-inside: avoid;
+    }
+
+    /* 画像・仕様セクション */
+    .print-images-section {
+        text-align: center;
+        margin-top: 15px;
+        page-break-inside: avoid;
+    }
+
+    .print-images-wrapper {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 10px;
+    }
+
+    .print-images-wrapper img {
+        width: 48%;
+        height: auto;
+        border: 1px solid #ccc;
+        object-fit: contain;
+    }
+
+    .hardware-box {
+        border: 1px solid #000;
+        padding: 10px 12px;
+        text-align: left;
+        font-size: 9.5pt;
+        font-family: 'MS Gothic', 'ＭＳ ゴシック', sans-serif;
+        background-color: #fafafa !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        line-height: 1.5;
+    }
+
+    /* 数式ブロック */
+    .formula-block {
+        position: relative;
+        width: 100%;
+        margin: 8px 0;
+        padding: 2px 0;
+        page-break-inside: avoid;
+        text-align: center;
+    }
+
+    .formula-math {
+        display: inline-block;
+        width: 80%;
+    }
+
+    .formula-number {
+        position: absolute;
+        right: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 15%;
+        text-align: right;
+        font-family: sans-serif;
+        font-size: 8.5pt;
+        color: #444;
+    }
+}

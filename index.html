@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>アーキトレンド 木造構造計算補助ツール | 実務者のための計算ツール群</title>
+	<script>
+        // 画面が描画される前に認証状態をチェック
+        fetch('/api/check_auth.php')
+            .then(res => res.json())
+            .then(data => {
+                if (!data.authenticated) {
+                    // 未認証の場合は履歴を残さずlogin.htmlへ強制移動
+                    window.location.replace('/login.html');
+                }
+            })
+            .catch(() => {
+                // エラー時も安全のためlogin.htmlへ
+                window.location.replace('/login.html');
+            });
+    </script>
+    <meta name="description" content="木造建築の構造設計・計算を強力にサポートする補助ツール群。人通口、柱の曲げ、めり込み、屋根・床構面の詳細計算など、実務に即した計算ツールを提供します。">
+    
+    <!-- Google Material Symbols -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/index.css">
+    <style>
+        /* パッケージカードの特別強調スタイル */
+        .package-card {
+            grid-column: 1 / -1; /* 横いっぱいに広げる（大きな画面の場合） */
+            background: linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%) !important;
+            border: 2px solid var(--secondary) !important;
+            display: grid !important;
+            grid-template-columns: auto 1fr;
+            text-align: left !important;
+            gap: 40px;
+            align-items: center;
+        }
+        @media (max-width: 768px) {
+            .package-card {
+                grid-template-columns: 1fr;
+                text-align: center !important;
+            }
+        }
+        .package-card .material-symbols-outlined {
+            font-size: 80px !important;
+            margin-bottom: 0 !important;
+        }
+        .package-card .badge {
+            display: inline-block;
+            background: var(--accent);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">Architrend Tools</div>
+    </header>
+
+    <section class="hero">
+        <h1>アーキトレンド 木造構造計算補助ツール</h1>
+        <p>実務者のための計算ツール群</p>
+    </section>
+
+    <main>
+        <div class="tool-grid">
+            <!-- 面材張り詳細計算法 パッケージ -->
+            <a href="shosai-hub.html" class="tool-card package-card">
+                <span class="material-symbols-outlined" style="color: var(--primary-light);">folder_special</span>
+                <div class="content">
+                    <span class="badge">おすすめ・高機能</span>
+                    <h3>面材張り詳細計算法 パッケージ</h3>
+                    <p style="font-size: 1.1rem; color: var(--primary); font-weight: 600; margin-bottom: 8px;">大壁・真壁・屋根・床の耐力を一括管理</p>
+                    <p>釘配列の計算（Ixy, Zxy等）から詳細な耐力算出まで、データ連携を活用して効率的に設計できます。まずはこちらから。</p>
+                    <div class="arrow">パッケージを開く <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">arrow_forward</span></div>
+                </div>
+            </a>
+
+            <!-- 人通口補強計算 -->
+            <a href="tools/jintsuko.html" class="tool-card">
+                <span class="material-symbols-outlined">construction</span>
+                <h3>人通口補強計算</h3>
+                <p>スラブ内割増筋およびせん断力の検定。PDF計算書からの応力抽出に対応。</p>
+                <div class="arrow">ツールを開く <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">arrow_forward</span></div>
+            </a>
+
+            <!-- 柱の曲げ計算 -->
+            <a href="tools/hasira-mage.html" class="tool-card">
+                <span class="material-symbols-outlined">vertical_align_center</span>
+                <h3>柱の曲げ計算</h3>
+                <p>風圧力および軸力に対する柱の曲げ・座屈検定。M図の自動描画機能付き。</p>
+                <div class="arrow">ツールを開く <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">arrow_forward</span></div>
+            </a>
+
+            <!-- めり込み補強計算 -->
+            <a href="tools/merikomi.html" class="tool-card">
+                <span class="material-symbols-outlined">expand_more</span>
+                <h3>めり込み補強計算</h3>
+                <p>土台・横架材のめり込み検定。タナカ土台プレートIIの耐力表に準拠。</p>
+                <div class="arrow">ツールを開く <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">arrow_forward</span></div>
+            </a>
+
+            <!-- 横架材のZ低減係数算出 -->
+            <a href="tools/zi.html" class="tool-card">
+                <span class="material-symbols-outlined">calculate</span>
+                <h3>横架材のZ低減係数</h3>
+                <p>プレカット仕口・渡り顎による断面欠損を考慮したZおよびIの低減算出。</p>
+                <div class="arrow">ツールを開く <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">arrow_forward</span></div>
+            </a>
+
+            <!-- 屋根葺き材等の検討 -->
+            <a href="tools/roof_calc.html" class="tool-card">
+                <span class="material-symbols-outlined">roofing</span>
+                <h3>屋根葺き材等の検討</h3>
+                <p>基準風速・地表面粗度区分に基づく速度圧および屋根勾配に応じた風圧力の検定。</p>
+                <div class="arrow">ツールを開く <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">arrow_forward</span></div>
+            </a>
+
+            <!-- はしご垂木 計算 -->
+            <a href="tools/hashigo.html" class="tool-card">
+                <span class="material-symbols-outlined">stairs</span>
+                <h3>はしご垂木 計算</h3>
+                <p>屋根はね出し部（はしご垂木）の曲げ・せん断・たわみの検定。樹種別の基準強度に対応。</p>
+                <div class="arrow">ツールを開く <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">arrow_forward</span></div>
+            </a>
+
+            <!-- 梁上耐力壁の剛性低減 -->
+            <a href="tools/hariue.html" class="tool-card">
+                <span class="material-symbols-outlined">architecture</span>
+                <h3>梁上耐力壁の剛性低減</h3>
+                <p>梁の上に載る耐力壁の剛性低減係数（γ）の算出および下部横架材の断面検定。</p>
+                <div class="arrow">ツールを開く <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">arrow_forward</span></div>
+            </a>
+
+            <!-- 片持ち庇の検討（引きボルト式接合部） -->
+            <a href="tools/rigid_frame_R.html" class="tool-card">
+                <span class="material-symbols-outlined">link</span>
+                <h3>片持ち庇の検討</h3>
+                <p>引きボルト式接合部の検討。接合面めり込み・ボルト引張・木口せん断破壊等の短期許容モーメント検定。</p>
+                <div class="arrow">ツールを開く <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">arrow_forward</span></div>
+            </a>
+
+            <!-- 逆Ｌ型・逆Ｔ型擁壁の計算 -->
+            <a href="tools/youheki_calculator.html" class="tool-card">
+                <span class="material-symbols-outlined">foundation</span>
+                <h3>逆Ｌ型・逆Ｔ型擁壁の計算</h3>
+                <p>逆L型・逆T型RC擁壁の安定計算（転倒・滑動・地盤反力）および縦壁の断面算定（曲げ・せん断）。</p>
+                <div class="arrow">ツールを開く <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">arrow_forward</span></div>
+            </a>
+
+            <!-- Ｌ型擁壁の計算 (2.0m未満) -->
+            <a href="tools/youheki_L_calculator.html" class="tool-card">
+                <span class="material-symbols-outlined">domain_add</span>
+                <h3>Ｌ型擁壁の計算 (2.0m未満)</h3>
+                <p>宅地L型擁壁(2m未満)の安定計算、前趾土重W3・N値地耐力自動算出、縦壁・前趾底版の断面算定。</p>
+                <div class="arrow">ツールを開く <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">arrow_forward</span></div>
+            </a>
+
+            <!-- 土砂災害特別警戒区域の外壁等の構造計算 -->
+            <a href="tools/dosha_saigai.html" class="tool-card">
+                <span class="material-symbols-outlined">warning</span>
+                <h3>土砂災害特別警戒区域の外壁等</h3>
+                <p>土砂災害特別警戒区域における外壁・控壁・基礎の構造計算（告示第332号・第383号準拠）。</p>
+                <div class="arrow">ツールを開く <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">arrow_forward</span></div>
+            </a>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 アーキトレンド 木造構造計算補助ツール All Rights Reserved.</p>
+    </footer>
+
+</body>
+</html>

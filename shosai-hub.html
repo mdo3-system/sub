@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>面材張り詳細計算法 パッケージ | アーキトレンド</title>
+    <script>
+        // 画面が描画される前に認証状態をチェック
+        fetch('/api/check_auth.php')
+            .then(res => res.json())
+            .then(data => {
+                if (!data.authenticated) {
+                    window.location.replace('/login.html');
+                }
+            })
+            .catch(() => {
+                window.location.replace('/login.html');
+            });
+    </script>
+    <meta name="description" content="面材張り詳細計算法（大壁・真壁・屋根・床）の統合パッケージ。釘配列計算からのデータ連携により、高度な構造計算をスムーズに行えます。">
+    
+    <!-- Google Material Symbols -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/index.css">
+    <style>
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: white;
+            text-decoration: none;
+            font-weight: 700;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+            transition: var(--transition);
+        }
+        .back-link:hover {
+            color: var(--accent);
+            transform: translateX(-5px);
+        }
+        
+        section.hub-section {
+            margin-bottom: 60px;
+        }
+        
+        .section-header {
+            margin-bottom: 30px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--secondary);
+            display: flex;
+            align-items: baseline;
+            gap: 15px;
+        }
+        
+        .section-header h2 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.75rem;
+            color: var(--primary);
+            margin: 0;
+        }
+        
+        .section-header p {
+            color: var(--text-sub);
+            font-size: 0.95rem;
+            margin: 0;
+        }
+
+        /* STEP 1 強調スタイル */
+        .step-badge {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: var(--accent);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            z-index: 2;
+        }
+
+        .highlight-card {
+            border: 2px solid var(--accent) !important;
+            background: linear-gradient(to bottom, #ffffff, #fffaf0) !important;
+        }
+        
+        .highlight-card:hover {
+            background: linear-gradient(to bottom, #ffffff, #fff5e6) !important;
+        }
+
+        /* 規定仕様セクションの調整 */
+        .basic-section {
+            background: #edf2f7;
+            padding: 40px;
+            border-radius: 24px;
+            margin-top: 40px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="global-header-container"></div>
+
+    <section class="hero">
+        <h1>面材張り詳細計算法 パッケージ</h1>
+        <p>大壁・真壁・屋根・床の耐力を精密に算出</p>
+    </section>
+
+    <main>
+        <!-- セクションA：カスタム仕様 -->
+        <section class="hub-section">
+            <div class="section-header">
+                <h2>【セクションA】カスタム仕様・詳細計算</h2>
+                <p>まず「釘配列諸定数」を計算してJSONを保存し、各部位のツールで読み込んでください。</p>
+            </div>
+            
+            <div class="tool-grid">
+                <!-- STEP 1: 釘配列諸定数 -->
+                <a href="tools/kugihairetsushoteisu.html" class="tool-card highlight-card">
+                    <span class="step-badge">STEP 1</span>
+                    <span class="material-symbols-outlined" style="color: var(--accent);">grid_on</span>
+                    <h3>釘配列諸定数 計算</h3>
+                    <p>任意の長方形面材における釘配列の Ixy, Zxy, Cxy, β を算出。全詳細計算法ツールの基礎データとなります。</p>
+                    <div class="arrow">ツールを開く <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">arrow_forward</span></div>
+                </a>
+
+                <!-- 面材張り大壁 -->
+                <a href="tools/shosai-okabe.html" class="tool-card">
+                    <span class="material-symbols-outlined">wall_art</span>
+                    <h3>面材張り大壁</h3>
+                    <p>グレー本3.2.1式に基づく面材張り大壁の倍率算出。釘配列データからの自動反映に対応。</p>
+                    <div class="arrow">ツールを開く <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">arrow_forward</span></div>
+                </a>
+
+                <!-- 面材張り真壁 -->
+                <a href="tools/shosai-shinkabe.html" class="tool-card">
+                    <span class="material-symbols-outlined">door_sliding</span>
+                    <h3>面材張り真壁</h3>
+                    <p>グレー本3.2.2式に基づく面材張り真壁の倍率算出。柱・横架材への釘打ち条件を詳細に設定可能。</p>
+                    <div class="arrow">ツールを開く <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">arrow_forward</span></div>
+                </a>
+
+                <!-- 垂木工法勾配屋根 -->
+                <a href="tools/shosai-tarukiyane.html" class="tool-card">
+                    <span class="material-symbols-outlined">roofing</span>
+                    <h3>垂木工法勾配屋根</h3>
+                    <p>垂木を用いた屋根勾配の耐力計算。釘配列と倍率の算出に対応。</p>
+                    <div class="arrow">ツールを開く <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">arrow_forward</span></div>
+                </a>
+
+                <!-- 面材張り屋根自重張り -->
+                <a href="tools/shosai-yanejikabari.html" class="tool-card">
+                    <span class="material-symbols-outlined">house</span>
+                    <h3>面材張り屋根直張り</h3>
+                    <p>面材張り勾配屋根の耐力計算。野地板と垂木間の接合検定。</p>
+                    <div class="arrow">ツールを開く <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">arrow_forward</span></div>
+                </a>
+
+                <!-- 面材張り床 [任意配列] -->
+                <a href="tools/shosai-yuka.html" class="tool-card">
+                    <span class="material-symbols-outlined">layers</span>
+                    <h3>面材張り床 [任意配列]</h3>
+                    <p>面材張り床水平構面の耐力計算。火打不要な高耐力構面の設計に。</p>
+                    <div class="arrow">ツールを開く <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">arrow_forward</span></div>
+                </a>
+            </div>
+        </section>
+
+        <!-- セクションB：規定仕様 -->
+        <section class="hub-section basic-section">
+            <div class="section-header">
+                <h2>【セクションB】規定仕様・詳細計算</h2>
+                <p>事前のJSON連携は不要です。内蔵された仕様から選んで即座に計算できます。</p>
+            </div>
+            
+            <div class="tool-grid">
+                <!-- 根太工法 水平構面/屋根構面の詳細計算 -->
+                <a href="tools/neta.html" class="tool-card">
+                    <span class="material-symbols-outlined">architecture</span>
+                    <h3>根太工法 水平構面/屋根構面</h3>
+                    <p>根太を用いた床・屋根構面の詳細計算。勾配屋根の投影耐力も算出可能です。</p>
+                    <div class="arrow">ツールを開く <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">arrow_forward</span></div>
+                </a>
+
+                <!-- 面材張り床 [基本仕様] -->
+                <a href="tools/shosai-yuka-kihon.html" class="tool-card">
+                    <span class="material-symbols-outlined">view_list</span>
+                    <h3>面材張り床 [基本仕様]</h3>
+                    <p>根太無し工法（直張り）専用の床せん断耐力計算。標準的な配置定数に基づく算出。</p>
+                    <div class="arrow">ツールを開く <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">arrow_forward</span></div>
+                </a>
+
+                <!-- 垂木工法勾配屋根 [基本仕様] -->
+                <a href="tools/shosai-tarukiyane-kihon.html" class="tool-card">
+                    <span class="material-symbols-outlined">roofing</span>
+                    <h3>垂木工法勾配屋根 [基本仕様]</h3>
+                    <p>規定の釘配置定数に基づく垂木屋根構面の詳細計算。全計算過程の出力に対応。</p>
+                    <div class="arrow">ツールを開く <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">arrow_forward</span></div>
+                </a>
+
+                <!-- 面材直張り勾配屋根 [基本仕様] -->
+                <a href="tools/shosai-yanejikabari-kihon.html" class="tool-card">
+                    <span class="material-symbols-outlined">house</span>
+                    <h3>面材直張り勾配屋根 [基本仕様]</h3>
+                    <p>登り梁等への直張り屋根構面の詳細計算。規定仕様から選んで計算過程を出力。</p>
+                    <div class="arrow">ツールを開く <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">arrow_forward</span></div>
+                </a>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 アーキトレンド 構造計算補助ツール All Rights Reserved.</p>
+    </footer>
+
+    <script src="js/common.js"></script>
+</body>
+</html>

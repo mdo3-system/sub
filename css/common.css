@@ -1,0 +1,318 @@
+@charset "UTF-8";
+
+/* =========================================
+   アーキトレンド共通デザインシステム (common.css)
+========================================= */
+
+:root {
+    --primary: #0f172a;       /* ダークネイビー */
+    --primary-light: #1e293b;
+    --accent: #2563eb;        /* ロイヤルブルー */
+    --accent-hover: #1d4ed8;
+    --success: #10b981;       /* エメラルドグリーン */
+    --warning: #f59e0b;       /* アンバー */
+    --danger: #ef4444;        /* レッド */
+    --bg-main: #f8fafc;       /* クリーンな薄いグレー */
+    --card-bg: #ffffff;
+    --text-main: #1e293b;
+    --text-muted: #64748b;
+    --border-color: #e2e8f0;
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.07), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+}
+
+body {
+    font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Yu Gothic UI", Meiryo, sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* --- 印刷用要素の画面非表示の徹底 --- */
+.print-only, #global-print-header {
+    display: none !important;
+}
+
+/* --- 共通コンテナ --- */
+.tool-container {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+/* --- タイトル・ヘッダー装飾 --- */
+h1.tool-title, h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--primary);
+    margin: 0 0 16px 0;
+    padding-bottom: 10px;
+    border-bottom: 3px solid var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* --- 共通ナビゲーション --- */
+.global-header-nav {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 6px 14px;
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s ease;
+}
+
+.nav-link:hover {
+    background: var(--accent);
+    color: #ffffff;
+    border-color: var(--accent);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+}
+
+.nav-link .material-symbols-outlined {
+    font-size: 18px;
+}
+
+/* --- 共通ヘッダー大枠入力スロット (工事名称 / 計算日 / 設計者) --- */
+.global-header-inputs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 24px;
+    background: var(--card-bg);
+    padding: 18px 24px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-md);
+    margin-bottom: 24px;
+    align-items: flex-end;
+}
+
+.global-header-inputs .header-field-project {
+    flex: 2 1 340px;
+    min-width: 260px;
+}
+
+.global-header-inputs .header-field-date {
+    flex: 0 0 160px;
+}
+
+.global-header-inputs .header-field-engineer {
+    flex: 2 1 340px;
+    min-width: 260px;
+}
+
+.global-header-inputs div {
+    display: flex;
+    flex-direction: column;
+}
+
+.global-header-inputs label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    white-space: nowrap;
+    letter-spacing: 0.03em;
+}
+
+.global-header-inputs input,
+.global-header-inputs select {
+    padding: 9px 14px;
+    border: 1.5px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 0.95rem;
+    color: var(--text-main);
+    background-color: #ffffff;
+    outline: none;
+    transition: all 0.2s ease;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.global-header-inputs input:focus,
+.global-header-inputs select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.global-header-inputs input::placeholder {
+    color: #94a3b8;
+}
+
+/* --- 共通ボタンデザイン --- */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 9px 18px;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-sm);
+    text-decoration: none;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+.btn:disabled {
+    background: #cbd5e1 !important;
+    color: #64748b !important;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+}
+
+.btn-primary { background: var(--accent); color: #ffffff; }
+.btn-primary:hover { background: var(--accent-hover); }
+
+.btn-success { background: var(--success); color: #ffffff; }
+.btn-success:hover { background: #059669; }
+
+.btn-secondary { background: #64748b; color: #ffffff; }
+.btn-secondary:hover { background: #475569; }
+
+.btn-print { background: var(--primary); color: #ffffff; }
+.btn-print:hover { background: var(--primary-light); }
+
+.btn-outline {
+    background: transparent;
+    border: 1.5px solid var(--border-color);
+    color: var(--text-main);
+}
+.btn-outline:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: #eff6ff;
+}
+
+/* --- 共通カードパネル --- */
+.card-panel, .panel-card {
+    background: var(--card-bg);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-md);
+    padding: 24px;
+    margin-bottom: 24px;
+}
+
+/* --- 共通テーブルスタイル --- */
+.standard-table, table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16px;
+    font-size: 0.9rem;
+    background: #ffffff;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.standard-table th, .standard-table td, table th, table td {
+    border: 1px solid var(--border-color);
+    padding: 10px 14px;
+    text-align: center;
+}
+
+.standard-table th, table th {
+    background-color: #f1f5f9;
+    color: var(--text-main);
+    font-weight: 700;
+}
+
+/* =========================================
+   共通印刷スタイル (@media print)
+========================================= */
+@media print {
+    .no-print, .global-header-inputs, .global-header-nav, h1:not(.print-title) {
+        display: none !important;
+    }
+
+    body {
+        background: #ffffff !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        font-size: 9pt !important;
+        color: #000000 !important;
+    }
+
+    /* 印刷用共通ヘッダーの描画 */
+    .print-only, #global-print-header {
+        display: block !important;
+    }
+
+    #global-print-header {
+        border-bottom: 2px solid #000000;
+        padding-bottom: 8px;
+        margin-bottom: 16px;
+        page-break-inside: avoid;
+    }
+
+    .print-header-title {
+        font-size: 14pt;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 8px;
+    }
+
+    .print-header-info {
+        display: flex;
+        justify-content: space-between;
+        font-size: 9.5pt;
+        align-items: flex-end;
+    }
+
+    .phi-row {
+        display: flex;
+        gap: 16px;
+        align-items: baseline;
+    }
+
+    .phi-lbl {
+        font-weight: bold;
+        color: #333333;
+    }
+
+    .phi-val {
+        border-bottom: 1px dotted #666666;
+        min-width: 140px;
+        display: inline-block;
+        padding-bottom: 2px;
+    }
+
+    @page {
+        size: A4 portrait;
+        margin: 12mm 15mm;
+    }
+}

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>ログイン | 構造計算ツール群</title>
+    <link rel="stylesheet" href="css/common.css">
+    <style>
+        body { display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .login-box { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
+        input[type="email"] { width: 90%; padding: 10px; margin: 15px 0; border: 1px solid #ccc; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <h2 style="color: #2b6cb0; margin-top:0;">ログイン</h2>
+        <p style="font-size: 0.9em; color: #4a5568;">登録済みのメールアドレスを入力してください。ログイン用のリンクをお送りします。</p>
+        <input type="email" id="email" placeholder="メールアドレス" required>
+        <button class="btn btn-primary" onclick="sendMagicLink()" style="width: 100%;">リンクを送信</button>
+        <p id="msg" style="margin-top: 15px; font-weight: bold; font-size: 0.9em;"></p>
+    </div>
+
+    <script>
+async function sendMagicLink() {
+            const email = document.getElementById('email').value;
+            const msgObj = document.getElementById('msg');
+            if(!email) { msgObj.textContent = "メールアドレスを入力してください。"; msgObj.style.color = "red"; return; }
+            
+            msgObj.textContent = "送信中..."; msgObj.style.color = "#4a5568";
+            
+            try {
+                const res = await fetch('api/send_link.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    // 送信成功時：メッセージに加えて、迷惑メール等の注意書きを枠付きで表示
+                    msgObj.innerHTML = `
+                        <span style="color: #38a169;">${data.message}</span>
+                        <div style="background: #fff5f5; border: 1px solid #fed7d7; padding: 12px; border-radius: 4px; color: #c53030; font-size: 0.85em; text-align: left; line-height: 1.5; margin-top: 15px;">
+                            <strong>⚠️ 必ずご確認ください</strong><br>
+                            ・メールが届かない場合は、<strong>「迷惑メールフォルダ」</strong>に振り分けられている可能性があります。<br>
+                            ・リンクをクリックした際、お使いのメールアプリにより「外部サイトへの遷移」や「安全性の確認」などの警告画面が表示されることがありますが、システムの仕様ですのでそのままお進みください。
+                        </div>
+                    `;
+                } else {
+                    // エラー時
+                    msgObj.textContent = data.message;
+                    msgObj.style.color = "#e53e3e";
+                }
+            } catch (err) {
+                // 通信エラーなどの場合
+                msgObj.textContent = "通信エラーが発生しました。時間を置いて再度お試しください。";
+                msgObj.style.color = "#e53e3e";
+                console.error(err);
+            }
+        }
+    </script>
+</body>
+</html>

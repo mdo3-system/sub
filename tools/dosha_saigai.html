@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>土砂災害特別警戒区域における外壁等の構造計算書</title>
+<script>
+    window.MathJax = {
+        chtml: {
+            scale: 0.85, 
+            displayAlign: 'left',
+            displayIndent: '1em'
+        }
+    };
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+        // 画面が描画される前に認証状態をチェック
+        if (window.location.protocol !== 'file:') {
+            fetch('/api/check_auth.php')
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (data && data.authenticated === false) {
+                        window.location.replace('/login.html');
+                    }
+                })
+                .catch(err => {
+                    console.warn("Auth check skipped or failed:", err);
+                });
+        }
+    </script>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/dosha_saigai.css">
+</head>
+<body>
+
+<div class="tool-container">
+    <div id="global-header-container"></div>
+    <div class="dosha-main-container">
+        <div class="dosha-control-panel no-print">
+        <h3 style="margin-top:0;">設計条件入力</h3>
+        
+        <button class="btn btn-print" onclick="window.print()">PDF出力 (印刷)</button>
+        <div style="display:flex; gap:10px; margin-bottom:15px;">
+            <button class="btn btn-save" onclick="saveJSON()">保存 (JSON)</button>
+            <button class="btn btn-load" onclick="document.getElementById('file_input').click()">復元 (JSON)</button>
+            <input type="file" id="file_input" accept=".json" style="display:none;" onchange="loadJSON(event)">
+        </div>
+        
+        <div class="form-group"><label>ρm: 土石等の密度 (t/m³)</label><input type="number" id="inp_rho_m" value="1.8" step="0.1" oninput="calc()"></div>
+        <div class="form-group"><label>g: 重力加速度 (m/s²)</label><input type="number" id="inp_g" value="9.8" step="0.1" oninput="calc()"></div>
+        <div class="form-group"><label>h_sm: 土石等の移動の高さ (m)</label><input type="number" id="inp_h_sm" value="1.44" step="0.01" oninput="calc()"></div>
+        <div class="form-group"><label>H: 急傾斜地の高さ (m)</label><input type="number" id="inp_H" value="3.4" step="0.1" oninput="calc()"></div>
+        <div class="form-group"><label>X: 建築物までの距離 (m)</label><input type="number" id="inp_X" value="3.0" step="0.1" oninput="calc()"></div>
+        <div class="form-group"><label>θu: 急傾斜地の傾斜度 (度)</label><input type="number" id="inp_theta_u" value="79" step="1" oninput="calc()"></div>
+        <div class="form-group"><label>θd: 下端隣接地の傾斜度 (度)</label><input type="number" id="inp_theta_d" value="0" step="1" oninput="calc()"></div>
+        <div class="form-group"><label>σ: 土石等の比重</label><input type="number" id="inp_sigma" value="2.6" step="0.1" oninput="calc()"></div>
+        <div class="form-group"><label>c: 土石等の容積濃度</label><input type="number" id="inp_c" value="0.5" step="0.1" oninput="calc()"></div>
+        <div class="form-group"><label>fb: 流体抵抗係数</label><input type="number" id="inp_fb" value="0.025" step="0.001" oninput="calc()"></div>
+        <div class="form-group"><label>φ: 内部摩擦角 (度)</label><input type="number" id="inp_phi" value="35" step="1" oninput="calc()"></div>
+        <div class="form-group"><label>γ: 単位体積重量 (kN/m³)</label><input type="number" id="inp_gamma" value="17.64" step="0.01" oninput="calc()"></div>
+        <div class="form-group"><label>δ: 壁面摩擦角 (度)</label><input type="number" id="inp_delta" value="23.33" step="0.01" oninput="calc()"></div>
+        <div class="form-group"><label>d: 控壁の突出長さ (m)</label><input type="number" id="inp_d_buttress" value="0.6" step="0.1" oninput="calc()"></div>
+        
+        <hr>
+        <h4 style="margin: 10px 0 5px 0;">堆積高(h) 算出用条件</h4>
+        <div class="form-group"><label>V: 崩壊土量 (m³)</label><input type="number" id="inp_V" value="8.62" step="0.01" oninput="calc()"></div>
+        <div class="form-group"><label>W: 最大崩壊幅 (m)</label><input type="number" id="inp_W" value="6.12" step="0.01" oninput="calc()"></div>
+        <div class="form-group"><label>X₁: 急傾斜地下端からの距離 (m)</label><input type="number" id="inp_X1" value="4.00" step="0.01" oninput="calc()"></div>
+
+        <hr>
+        <h3 style="margin-bottom: 5px;">配筋選択</h3>
+        <p style="font-size:7.5pt; margin-top:0;">※断面積: D10=71.3, D13=126.7, D16=198.6, D19=286.5, D13D16=162.6</p>
+        
+        <div class="form-group">
+            <label>【外壁】鉄筋 / ピッチ</label>
+            <div style="display:flex; gap:5px;">
+                <select id="sel_bar_w" onchange="calc()">
+                    <option value="71.3" selected>D10</option>
+                    <option value="126.7">D13</option>
+                    <option value="198.6">D16</option>
+                    <option value="286.5">D19</option>
+                    <option value="162.6">D13D16</option>
+                </select>
+                <select id="sel_pitch_w" onchange="calc()">
+                    <option value="50">@50</option>
+                    <option value="100">@100</option>
+                    <option value="150">@150</option>
+                    <option value="200" selected>@200</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>【控壁】鉄筋 / ピッチ</label>
+            <div style="display:flex; gap:5px;">
+                <select id="sel_bar_b" onchange="calc()">
+                    <option value="71.3" selected>D10</option>
+                    <option value="126.7">D13</option>
+                    <option value="198.6">D16</option>
+                    <option value="286.5">D19</option>
+                    <option value="162.6">D13D16</option>
+                </select>
+                <select id="sel_pitch_b" onchange="calc()">
+                    <option value="50">@50</option>
+                    <option value="100">@100</option>
+                    <option value="150">@150</option>
+                    <option value="200" selected>@200</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>【基礎】鉄筋 / ピッチ</label>
+            <div style="display:flex; gap:5px;">
+                <select id="sel_bar_f" onchange="calc()">
+                    <option value="71.3" selected>D10</option>
+                    <option value="126.7">D13</option>
+                    <option value="198.6">D16</option>
+                    <option value="286.5">D19</option>
+                    <option value="162.6">D13D16</option>
+                </select>
+                <select id="sel_pitch_f" onchange="calc()">
+                    <option value="50">@50</option>
+                    <option value="100">@100</option>
+                    <option value="150">@150</option>
+                    <option value="200" selected>@200</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="print-area">
+        <div class="sheet">
+            <h1>土砂災害特別警戒区域における外壁等の構造計算書</h1>
+            
+            <h2>■ 計算条件 (入力値)</h2>
+            <table class="conditions-table" style="margin-bottom: 10px;">
+                <tbody>
+                    <tr>
+                        <th>ρm: 土石等の密度</th><td><span id="c_rho"></span> t/m³</td>
+                        <th>σ: 土石等の比重</th><td><span id="c_sigma"></span></td>
+                    </tr>
+                    <tr>
+                        <th>g: 重力加速度</th><td><span id="c_g"></span> m/s²</td>
+                        <th>c: 土石等の容積濃度</th><td><span id="c_c"></span></td>
+                    </tr>
+                    <tr>
+                        <th>h_sm: 土石等の移動の高さ</th><td><span id="c_hsm"></span> m</td>
+                        <th>fb: 流体抵抗係数</th><td><span id="c_fb"></span></td>
+                    </tr>
+                    <tr>
+                        <th>H: 急傾斜地の高さ</th><td><span id="c_H"></span> m</td>
+                        <th>φ: 内部摩擦角</th><td><span id="c_phi"></span> 度</td>
+                    </tr>
+                    <tr>
+                        <th>X: 建築物までの水平距離</th><td><span id="c_X"></span> m</td>
+                        <th>γ: 単位体積重量</th><td><span id="c_gamma"></span> kN/m³</td>
+                    </tr>
+                    <tr>
+                        <th>θu: 急傾斜地の傾斜度</th><td><span id="c_thetau"></span> 度</td>
+                        <th>h: 土石等の堆積の高さ</th><td><span id="c_h"></span> m</td>
+                    </tr>
+                    <tr>
+                        <th>θd: 下端隣接地の傾斜度</th><td><span id="c_thetad"></span> 度</td>
+                        <th>δ: 壁面摩擦角</th><td><span id="c_delta"></span> 度</td>
+                    </tr>
+                    <tr>
+                        <th>d: 控壁の突出長さ</th><td colspan="3"><span id="c_d"></span> m</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h2>1. 土石等の堆積の高さ (h) の算定</h2>
+            <div class="formula-box">
+                $$h = \frac{-X_1 + \sqrt{X_1^2 + 2S \cdot \tan(90^\circ - \theta_u)}}{\tan(90^\circ - \theta_u)}$$
+            </div>
+            <div class="legend">
+                <ul>
+                    <li>\(h\): 土石等の堆積の高さ = <strong><span id="out_h_calc"></span> m</strong></li>
+                    <li>\(S\): 土砂の断面積（単位あたりの土砂量） = \(V / W =\) <span id="out_S"></span> m²</li>
+                    <li>\(V\): 崩壊土量 = <span id="out_V"></span> m³</li>
+                    <li>\(W\): 最大崩壊幅 = <span id="out_W"></span> m</li>
+                    <li>\(X_1\): 急傾斜地下端からの距離 = <span id="out_X1"></span> m</li>
+                    <li>\(\theta_u\): 急傾斜地の傾斜度 = <span id="out_thetau_calc"></span> 度</li>
+                </ul>
+            </div>
+
+            <h2>2. 急傾斜地の崩壊に伴う土石等の移動・堆積による力の算定</h2>
+            
+            <div class="formula-box">
+                <p style="margin:2px 0;"><strong>国土交通省告示第三百三十二号 第2の1（移動による力）</strong></p>
+                $$F_{sm} = \rho_m g h_{sm} \left[ \frac{b_u}{a} \left\{ 1 - \exp\left( \frac{-2a H}{h_{sm} \sin\theta_u} \right) \right\} \cos^2(\theta_u - \theta_d) \exp\left( \frac{-2a X}{h_{sm}} \right) + \frac{b_d}{a} \left\{ 1 - \exp\left( \frac{-2a X}{h_{sm}} \right) \right\} \right]$$
+                $$b_u = \cos\theta_u \left\{ \tan\theta_u - \frac{(\sigma - 1)c}{(\sigma - 1)c + 1}\tan\phi \right\}, \quad b_d = \cos\theta_d \left\{ \tan\theta_d - \frac{(\sigma - 1)c}{(\sigma - 1)c + 1}\tan\phi \right\}, \quad a = \frac{2}{(\sigma - 1)c + 1} f_b$$
+            </div>
+            <div class="legend">
+                <ul>
+                    <li>\(F_{sm}\): 移動により建築物に作用すると想定される力の大きさ = <strong><span id="out_Fsm_raw"></span> kN/m²</strong> <span id="out_Fsm_note" style="color:red; font-weight:bold;"></span></li>
+                    <li>算出係数: \(a =\) <span id="out_a"></span>, \(b_u =\) <span id="out_bu"></span>, \(b_d =\) <span id="out_bd"></span></li>
+                </ul>
+            </div>
+
+            <div class="formula-box">
+                <p style="margin:2px 0;"><strong>国土交通省告示第三百三十二号 第2の2（堆積による力）</strong></p>
+                $$F_{sa} = \frac{\gamma h \cos^2\phi}{\cos\delta \{ 1 + \sqrt{\sin(\phi + \delta)\sin\phi / \cos\delta} \}^2}$$
+            </div>
+            <div class="legend">
+                <ul>
+                    <li>\(F_{sa}\): 堆積により建築物に作用すると想定される力の大きさ = <strong><span id="out_Fsa" style="font-weight:bold;">-</span> kN/m²</strong></li>
+                </ul>
+            </div>
+
+            <h2>3. 外壁等の構造方法及び必要鉄筋量の検定</h2>
+            <div class="legend" style="margin-bottom: 5px;">
+                <p style="margin:0 0 5px 0;"><strong>国土交通省告示第三百八十三号 第一、第二</strong> に基づき、移動による最大力 \(p\) 及び堆積による最大力 \(w\) を用いて検定を行う。本計算において \(p = \max(F_{sm}, 0)\) 、 \(w = F_{sa}\) と定義する。</p>
+                <ul>
+                    <li>\(p\): 移動による最大力の大きさ = <strong><span id="out_p"></span> kN/m²</strong></li>
+                    <li>\(w\): 堆積による最大力の大きさ = <strong><span id="out_w"></span> kN/m²</strong></li>
+                </ul>
+            </div>
+            
+            <div id="route2_warning" class="danger-box">
+                ※警告：算定された力または高さが告示第三百八十三号の「第二号（構造計算ルート）」の適用条件を満たしています。本仕様規定（第一号）の配筋表による検定は適用できず、荷重組み合わせ（G+P+Sm等）を考慮した詳細な構造計算が必要となります。
+            </div>
+
+            <table id="spec_table">
+                <thead>
+                    <tr>
+                        <th rowspan="2">部位</th>
+                        <th colspan="2">告示の条件・数式</th>
+                        <th rowspan="2">必要断面積<br>(mm²/m)</th>
+                        <th rowspan="2">採用鉄筋<br>及びピッチ</th>
+                        <th rowspan="2">設計断面積<br>(mm²/m)</th>
+                        <th rowspan="2">判定</th>
+                    </tr>
+                    <tr>
+                        <th>移動/堆積の区分</th>
+                        <th>断面積の和(計算式)</th>
+                    </tr>
+                </thead>
+                <tbody id="result_tbody">
+                </tbody>
+            </table>
+            
+            <div style="font-size: 7.5pt; color: #555; text-align: right;">
+                計算コード：国土交通省告示第332号・第383号準拠
+            </div>
+        </div>
+        
+        <div class="sheet page-break">
+            <h2>■ 補足事項（計算結果の物理的考察）</h2>
+            <div class="alert-box">
+                <strong>【重要】移動による力（Fsm）の算定結果に関する考察</strong><br><br>
+                国土交通省告示第三百三十二号の数式を厳密に計算すると、本条件では移動による力 $F_{sm}$ は負の値となります。これは「下端平坦部（$\theta_d=0^\circ$）での摩擦抵抗による減速効果が大きく、土石流が離隔距離 $X=3.0\text{m}$ 先の建築物に到達する前に停止する」という物理現象を表しています。<br><br>
+                本構造計算においては、告示式を適正に評価し、算出された力が負となる場合は建築物への衝突荷重が発生しないものとして $p = 0.00 \text{ kN/m}^2$ と定義し、外壁等の検定を行っています。
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="../js/common.js"></script>
+<script src="../js/dosha_saigai.js"></script>
+</body>
+</html>

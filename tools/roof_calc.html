@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <script>
+        if (window.location.protocol !== 'file:') {
+            fetch('/api/check_auth.php')
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (data && data.authenticated === false) {
+                        window.location.replace('/login.html');
+                    }
+                })
+                .catch(err => console.warn("Auth check failed:", err));
+        }
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>屋根葺き材等の検討ツール</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; padding: 20px; max-width: 900px; margin: auto; background-color: #f4f7f6; color: #333; }
+        h1, h2, h3 { color: #2c3e50; }
+        .card { background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; position: relative; }
+        .input-group { margin-bottom: 15px; }
+        label { display: inline-block; width: 220px; font-weight: bold; vertical-align: top; }
+        input[type="number"], select, input[type="text"] { width: 150px; padding: 6px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        input[type="text"].wide { width: calc(100% - 230px); min-width: 200px; }
+        .row { display: flex; flex-wrap: wrap; gap: 20px; }
+        .col { flex: 1; min-width: 320px; background: #fafafa; padding: 20px; border-radius: 8px; border: 1px solid #e0e0e0; position: relative; }
+        .result-box { background: #e8f4f8; padding: 15px; border-radius: 8px; border: 1px solid #b3d4e0; margin-top: 15px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; background-color: #fff; text-align: center; }
+        th, td { border: 1px solid #ccc; padding: 10px; }
+        th { background-color: #f0f0f0; }
+        .ok { color: #27ae60; font-weight: bold; }
+        .ng { color: #c0392b; font-weight: bold; }
+        .note { font-size: 0.85em; color: #7f8c8d; margin-top: 4px; }
+        .auto-calc { color: #2980b9; font-weight: bold; }
+
+        /* ボタンデザイン */
+        .btn-print { background: #2d3748; color: #fff; font-size: 1.1em; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 20px; font-weight: bold; }
+        .btn-print:hover { background: #4a5568; }
+        .btn-add { background: #3182ce; color: #fff; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-bottom: 20px; }
+        .btn-add:hover { background: #4299e1; }
+        .btn-remove { background: #e53e3e; color: #fff; padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8em; position: absolute; top: 10px; right: 10px; }
+        .btn-remove:hover { background: #fc8181; }
+        .btn-io { background: #38a169; color: #fff; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px; font-weight: bold; }
+
+        /* 印刷用サマリー */
+        #print_summary { display: none; }
+        .summary-box { border: 2px solid #2d3748; padding: 15px; margin-bottom: 20px; border-radius: 8px; background: #fff; }
+        .summary-title { font-weight: bold; font-size: 1.2em; border-bottom: 1px solid #2d3748; padding-bottom: 5px; margin-bottom: 10px; }
+        .summary-item { font-size: 1.1em; margin-bottom: 5px; }
+
+        @media print {
+            .no-print { display: none !important; }
+            body { background: #fff; padding: 0; margin: 0; font-size: 10pt; color: #000; max-width: 100%; }
+            #global-header-container { display: none !important; }
+            .card { box-shadow: none; border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; break-inside: avoid; }
+            .col { border: none; padding: 0; background: transparent; width: 100%; min-width: 100%; margin-bottom: 20px; break-inside: avoid; }
+            .row { display: block; }
+            h1 { font-size: 18pt; margin-bottom: 10px; border-bottom: 1px solid #000; padding-bottom: 5px; }
+            h2 { font-size: 14pt; border-bottom: 1px solid #ccc; padding-bottom: 3px; }
+            input[type="number"], select, input[type="text"] { border: none; background: transparent; -webkit-appearance: none; appearance: none; font-weight: bold; width: auto; font-size: 10pt; pointer-events: none; }
+            label { width: 180px; }
+            #print_summary { display: block !important; margin-top: 10px; }
+            @page { size: A4 portrait; margin: 10mm 15mm; }
+        }
+        .btn-back:hover { background: #2d3748 !important; }
+    </style>
+</head>
+<body>
+<div class="tool-container">
+    <div id="global-header-container"></div>
+
+<div style="display: flex; justify-content: space-between; align-items: flex-start;">
+    <h1>屋根葺き材等の検討</h1>
+    <button class="btn-print no-print" onclick="window.print()">🖨 計算書を印刷 (A4タテ)</button>
+</div>
+
+<!-- 印刷用サマリー領域 -->
+<div id="print_summary"></div>
+
+<div class="card no-print">
+    <h2>共通条件</h2>
+    <div class="input-group">
+        <label>基準風速 Vo (m/s):</label>
+        <input type="number" id="Vo" value="34" step="0.1">
+    </div>
+    <div class="input-group">
+        <label>地表面粗度区分:</label>
+        <select id="sodo">
+            <option value="Ⅰ">Ⅰ</option>
+            <option value="Ⅱ">Ⅱ</option>
+            <option value="Ⅲ" selected>Ⅲ</option>
+            <option value="Ⅳ">Ⅳ</option>
+        </select>
+    </div>
+    <div class="input-group">
+        <label>速度圧算定係数 Er:</label>
+        <input type="number" id="Er" value="0.778" step="0.001">
+    </div>
+    <div class="result-box">
+        <strong>平均速度圧 q:</strong> <span id="q_result" class="auto-calc">0</span> N/m²
+        <div class="note">計算式: q = 0.6 × Er² × Vo²</div>
+    </div>
+    
+    <div style="margin-top: 20px;">
+        <button class="btn-io" onclick="exportData()">💾 現在の状態を保存</button>
+        <input type="file" id="json_upload" accept=".json" style="display:none;" onchange="importData(event)">
+        <button class="btn-io" onclick="document.getElementById('json_upload').click()">📁 保存ファイルを読込</button>
+    </div>
+</div>
+
+<div id="roof-cards-container">
+    <!-- ここに動的に部位カードが追加されます -->
+</div>
+
+<div style="text-align: center;" class="no-print">
+    <button class="btn-add" id="btnAddRoof">＋ 部位（屋根）を追加</button>
+</div>
+
+    <script src="../js/common.js?v=3"></script>
+    <script src="../js/roof_calc.js?v=3"></script>
+</div>
+</body>
+</html>

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>片持ち庇の検討書（引きボルト式接合部）</title>
+    <script>
+        // 画面が描画される前に認証状態をチェック
+        if (window.location.protocol !== 'file:') {
+            fetch('/api/check_auth.php')
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (data && data.authenticated === false) {
+                        window.location.replace('/login.html');
+                    }
+                })
+                .catch(err => {
+                    console.warn("Auth check skipped or failed:", err);
+                });
+        }
+    </script>
+    <script>
+        MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/rigid_frame_R.css">
+</head>
+<body>
+<div class="tool-container">
+    <div id="global-header-container"></div>
+    <div class="container">
+    
+    <!-- 保存用ダミー日付インプット -->
+    <input type="date" id="in_date" style="display: none;">
+
+    <div class="no-print">
+        <h1>片持ち庇の構造計算（引きボルト式接合部）</h1>
+        
+        <div class="toolbar">
+            <button class="btn btn-success" onclick="saveJSON()">💾 JSON保存</button>
+            <label class="btn btn-primary" style="margin-bottom: 0;">
+                📂 JSON読込
+                <input type="file" id="json_upload" accept=".json" style="display: none;" onchange="loadJSON(event)">
+            </label>
+            <button class="btn btn-print" onclick="prepareAndPrint()">🖨️ PDF出力 (A4印刷)</button>
+        </div>
+
+        <h2>1. 設計荷重（構造計算より入力）</h2>
+        <div class="form-group">
+            <div class="input-item">
+                <label>設計曲げモーメント Md [kN・m]</label>
+                <input type="number" id="in_Md" value="1.06" step="0.01" oninput="calculate()">
+            </div>
+            <div class="input-item">
+                <label>設計せん断力 Qd [kN]</label>
+                <input type="number" id="in_Qd" value="1.06" step="0.01" oninput="calculate()">
+            </div>
+        </div>
+
+        <h2>2. 使用材料・構造寸法</h2>
+        <div class="form-group">
+            <div class="input-item">
+                <label>柱の樹種・材料・等級</label>
+                <select id="sel_col_wood" onchange="calculate()">
+                    <option value='{"name":"べいまつ", "Fcv":9.0, "E":10000, "Fs":2.4, "n":7}'>べいまつ (Fcv=9.0, Fs=2.4)</option>
+                    <option value='{"name":"ひのき", "Fcv":7.8, "E":9000, "Fs":2.1, "n":6}'>ひのき (Fcv=7.8, Fs=2.1)</option>
+                    <option value='{"name":"すぎ", "Fcv":6.0, "E":7000, "Fs":1.8, "n":5}' selected>すぎ (Fcv=6.0, Fs=1.8)</option>
+                    <option value='{"name":"E135-F375 べいまつ", "Fcv":9.0, "E":13500, "Fs":3.6, "n":7}'>E135-F375 べいまつ (Fcv=9.0, Fs=3.6)</option>
+                    <option value='{"name":"E105-F300 あかまつ", "Fcv":6.0, "E":10500, "Fs":3.0, "n":6}'>E105-F300 あかまつ (Fcv=6.0, Fs=3.0)</option>
+                </select>
+            </div>
+            <div class="input-item">
+                <label>梁の樹種・材料・等級</label>
+                <select id="sel_beam_wood" onchange="calculate()">
+                    <option value='{"name":"べいまつ", "Fcv":9.0, "E":10000, "Fs":2.4, "n":7}' selected>べいまつ (Fcv=9.0, Fs=2.4)</option>
+                    <option value='{"name":"ひのき", "Fcv":7.8, "E":9000, "Fs":2.1, "n":6}'>ひのき (Fcv=7.8, Fs=2.1)</option>
+                    <option value='{"name":"すぎ", "Fcv":6.0, "E":7000, "Fs":1.8, "n":5}'>すぎ (Fcv=6.0, Fs=1.8)</option>
+                    <option value='{"name":"E135-F375 べいまつ", "Fcv":9.0, "E":13500, "Fs":3.6, "n":7}'>E135-F375 べいまつ (Fcv=9.0, Fs=3.6)</option>
+                    <option value='{"name":"E105-F300 あかまつ", "Fcv":6.0, "E":10500, "Fs":3.0, "n":6}'>E105-F300 あかまつ (Fcv=6.0, Fs=3.0)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="input-item">
+                <label>柱寸法（貫通幅）</label>
+                <select id="sel_col" onchange="updateBoltLength(); calculate();">
+                    <option value="105" selected>105 × 105 mm</option>
+                    <option value="120">120 × 120 mm</option>
+                </select>
+            </div>
+            <div class="input-item">
+                <label>梁寸法 (せい d)</label>
+                <select id="sel_beam_d" onchange="calculate()">
+                    <option value="150" selected>150 mm</option>
+                    <option value="180">180 mm</option>
+                    <option value="240">240 mm</option>
+                    <option value="300">300 mm</option>
+                </select>
+            </div>
+            <div class="input-item">
+                <label>座金の仕様</label>
+                <select id="sel_washer" onchange="updateBoltLength(); calculate();">
+                    <option value='{"name":"厚さ4.5mm, 40×40mm", "area":1600, "xb":40, "yb":40, "thick":4.5}' selected>厚さ4.5mm, 40mm × 40mm</option>
+                    <option value='{"name":"厚さ6.0mm, 60×60mm", "area":3600, "xb":60, "yb":60, "thick":6.0}'>厚さ6.0mm, 60mm × 60mm</option>
+                    <option value='{"name":"厚さ9.0mm, 80×80mm", "area":6400, "xb":80, "yb":80, "thick":9.0}'>厚さ9.0mm, 80mm × 80mm</option>
+                </select>
+            </div>
+        </div>
+        
+        <h2>3. 接合部芯・ボルト仕様</h2>
+        <div class="form-group">
+            <div class="input-item">
+                <label>梁への埋め込み深さ l1 [mm]</label>
+                <input type="number" id="in_l1" value="105" min="50" max="400" oninput="updateBoltLength(); calculate();">
+            </div>
+            <div class="input-item">
+                <label>引張有効長さ l [mm] <span style="font-weight:normal; color:#e67e22;">(自動計算)</span></label>
+                <input type="number" id="in_l_eff" readonly>
+            </div>
+            <div class="input-item">
+                <label>推奨ボルト製品全長 L [mm] <span style="font-weight:normal; color:#27ae60;">(自動選定)</span></label>
+                <input type="text" id="in_L_prod" readonly>
+            </div>
+        </div>
+
+        <button class="btn-calc" onclick="calculate()">計算実行</button>
+
+        <div class="results-ui" id="results_panel" style="display:none;">
+            <h3>計算結果プレビュー</h3>
+            <div class="result-item-ui"><span>木材めり込み降伏耐力 (ΣNy)</span><span id="ui_Ny">0 kN</span></div>
+            <div class="result-item-ui"><span>木口せん断破壊耐力 (Nus)</span><span id="ui_Nus">0 kN</span></div>
+            <div class="result-item-ui"><span>ボルト引張剛性 (K2)</span><span id="ui_K2">0 N/mm</span></div>
+            <div class="result-item-ui"><span>短期基準モーメント (sMa)</span><span id="ui_sMa">0 kN・m</span></div>
+            <div class="result-item-ui"><span>判定</span><span id="ui_judge"></span></div>
+        </div>
+    </div>
+
+    <!-- 印刷用領域 -->
+    <div class="print-only">
+        <h1 class="print-title">片持ち庇の検討書（引きボルト式接合部）</h1>
+        <div class="doc-info">
+            <div>
+                <p><strong>物件名：</strong> <span id="pr_project"></span></p>
+                <p><strong>検討対象：</strong> 柱梁接合部（引きボルト仕様）</p>
+            </div>
+            <div class="doc-info-right">
+                <p>作成日： <span id="pr_date"></span></p>
+                <p>設計者： <span id="pr_designer"></span></p>
+            </div>
+        </div>
+
+        <h2 class="print-h2">1. 設計荷重および配置条件</h2>
+        <table class="report-table">
+            <tr><th>設計曲げモーメント ($M_d$)</th><td id="pr_Md"></td></tr>
+            <tr><th>設計せん断力 ($Q_d$)</th><td id="pr_Qd"></td></tr>
+            <tr><th>柱 樹種・寸法</th><td id="pr_col_info"></td></tr>
+            <tr><th>梁 樹種・寸法</th><td id="pr_beam_info"></td></tr>
+        </table>
+
+        <h2 class="print-h2">2. 検定結果まとめ</h2>
+        <table class="report-table">
+            <tr><th>短期基準モーメント (${}_sM_a$)</th><td id="pr_sMa" style="font-weight:bold;"></td></tr>
+            <tr><th>ボルト引張降伏耐力 ($T_{y2}$)</th><td id="pr_Ty"></td></tr>
+            <tr><th>木材めり込み降伏耐力 ($\Sigma N_y$)</th><td id="pr_Ny"></td></tr>
+            <tr><th>木口せん断破壊耐力 ($N_{us}$)</th><td id="pr_Nus"></td></tr>
+            <tr><th>ボルト引張剛性 ($K_2$)</th><td id="pr_K2"></td></tr>
+        </table>
+        <div class="judgment-box" id="pr_judgment_box"></div>
+
+        <div class="print-images-section">
+            <div class="print-images-wrapper">
+                <img src="../imag/fig2.png" alt="図2 記号の定義" onerror="this.src='data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22230%22%3E%3Crect width=%22100%25%22 height=%22100%25%22 fill=%22%23eee%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23999%22 text-anchor=%22middle%22%3E図2 (fig2.png)%3C/text%3E%3C/svg%3E'">
+                <img src="../imag/fig3.png" alt="図3 力学モデル" onerror="this.src='data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22230%22%3E%3Crect width=%22100%25%22 height=%22100%25%22 fill=%22%23eee%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 fill=%22%23999%22 text-anchor=%22middle%22%3E図3 (fig3.png)%3C/text%3E%3C/svg%3E'">
+            </div>
+            <div class="hardware-box">
+                <strong>【接合部 金物・納まり仕様】</strong><br>
+                ・引きボルト仕様： 六角ボルト M12 (JIS B 1180 強度区分4.6相当)<br>
+                ・製品全長 $L$  ： <strong><span id="pr_img_L"></span> mm</strong>（手配サイズ）<br>
+                ・引張有効長 $l$ ： <strong><span id="pr_img_l_eff"></span> mm</strong>（柱幅 + $l_1$ による自動計算値）<br>
+                ・埋め込み深さ $l_1$： <strong><span id="pr_img_l1"></span> mm</strong><br>
+                ・使用座金仕様 ： <strong><span id="pr_img_washer"></span></strong>（最低確保寸法として高さを考慮）
+            </div>
+        </div>
+
+        <div style="page-break-before: always;"></div>
+        
+        <h2 class="print-h2">3. 計算数式および評価根拠一覧</h2>
+        <p style="font-size:9.5pt; margin-bottom:15px;">本検討書は、以下の要素関係式に基づき接合部の回転剛性および許容耐力モーメントの評価を行っています。</p>
+        <h3 style="font-size:10.5pt; margin-top:10px; font-family:'MS Gothic';">（1）回転剛性と要素方程式</h3>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_1">$$\Sigma N = \frac{x_p^2 y_p C_y E_{\perp}}{2 Z_a} \times \left\{ 1 + \frac{4 Z_a}{3 x_p} \left( 1 - e^{-\frac{3 x_p}{2 Z_a}} \right) \right\} \theta$$</div><div class="formula-number">(1-2-1)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_2">$$\delta_T = T \left( \frac{1}{K_1} + \frac{1}{K_2} + \frac{1}{K_3} \right)$$</div><div class="formula-number">(1-2-2)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_3">$$\Sigma N = T$$</div><div class="formula-number">(1-2-3)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_4">$$(d - x_p) \cdot \theta = \delta_T$$</div><div class="formula-number">(1-2-4)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_5">$$\frac{x_p^2 y_p C_y E_{\perp}}{2 Z_a} \left\{ 1 + \frac{4 Z_a}{3 x_p} \left( 1 - e^{-\frac{3 x_p}{2 Z_a}} \right) \right\} \left( \frac{1}{K_1} + \frac{1}{K_2} + \frac{1}{K_3} \right) = d - x_p$$</div><div class="formula-number">(1-2-5)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_6">$$x_p = \frac{-b + \sqrt{b^2 + ac}}{a}$$</div><div class="formula-number">(1-2-6)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_6a">$$a = \frac{y_p C_y E_{\perp}}{Z_a} \left( \frac{1}{K_1} + \frac{1}{K_2} + \frac{1}{K_3} \right)$$</div><div class="formula-number">(1-2-6a)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_6b">$$b = 1 + \frac{2 Z_a}{3} \left( 1 - e^{-\frac{3 x_p}{2 Z_a}} \right) \cdot a$$</div><div class="formula-number">(1-2-6b)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_6c">$$c = 2d$$</div><div class="formula-number">(1-2-6c)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_6d">$$C_y = 1 + \frac{4 Z_a}{3 n y_p} \left( 1 - e^{-\frac{3 n y_p}{2 Z_a}} \right)$$</div><div class="formula-number">(1-2-6d)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_7">$$K_1 = \frac{x_0 y_0 C_{x2m} C_{y2} E_{\perp}}{Z_a}$$</div><div class="formula-number">(1-2-7)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_7a">$$C_{x2m} = 1 + \frac{4 Z_a}{3 x_0}$$</div><div class="formula-number">(1-2-7a)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_7b">$$C_{y2} = 1 + \frac{4 Z_a}{3 n y_0} \left( 1 - e^{-\frac{3 n y_0}{2 Z_a}} \right)$$</div><div class="formula-number">(1-2-7b)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_8">$$K_2 = \frac{E_s A_t}{l}$$</div><div class="formula-number">(1-2-8)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_9">$$K_3 = x_b \cdot y_b \cdot k_0$$</div><div class="formula-number">(1-2-9)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_10">$$K_\theta = \frac{M}{\theta} = \frac{\Sigma N \times (d - x_a)}{\theta} = \frac{x_p^2 y_p C_s C_y E_{\perp} (d - x_a)}{2 Z_a}$$</div><div class="formula-number">(1-2-10)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_10a">$$x_a = \frac{x_p}{3 C_s}$$</div><div class="formula-number">(1-2-10a)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_10b">$$C_s = 1 + \frac{4 Z_a}{3 x_p} \left( 1 - e^{-\frac{3 x_p}{2 Z_a}} \right)$$</div><div class="formula-number">(1-2-10b)</div></div>
+
+        <h3 style="font-size:10.5pt; margin-top:15px; font-family:'MS Gothic'; page-break-before:auto;">（2）各部の降伏限界モーメント評価</h3>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_11">$$\theta_y = \frac{Z_a F_m}{x_p E_{\perp} \sqrt{C_s C_y C_{sm} C_{ym}}}$$</div><div class="formula-number">(1-2-11)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_11a">$$C_{sm} = 1 + \frac{4 Z_a}{3 x_p}$$</div><div class="formula-number">(1-2-11a)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_11b">$$C_{ym} = 1 + \frac{4 Z_a}{3 n y_p}$$</div><div class="formula-number">(1-2-11b)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_12">$$\Sigma N_y = \frac{x_p^2 y_p C_s C_y E_{\perp} \theta_y}{2 Z_a} = \frac{x_p y_p F_m}{2} \sqrt{\frac{C_s C_y}{C_{sm} C_{ym}}}$$</div><div class="formula-number">(1-2-12)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_13">$$N_{y1} = x_0 y_0 F_m \sqrt{\frac{C_{y2}}{C_{y2m}}}$$</div><div class="formula-number">(1-2-13)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_13b">$$C_{y2m} = 1 + \frac{4 Z_a}{3 n y_0}$$</div><div class="formula-number">(1-2-13b)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_14">$$T_{y2} = A_t \cdot F_t$$</div><div class="formula-number">(1-2-14)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_15">$$N_y = \min(\Sigma N_y, N_{y1}, T_{y2})$$、$$M_y = N_y (d - x_a)$$</div><div class="formula-number">(1-2-15)</div></div>
+
+        <h3 style="font-size:10.5pt; margin-top:15px; font-family:'MS Gothic';">（3）終局限界・破断モードおよび短期許容モーメント</h3>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_16a">$$M_{ut2} \le \min(M_{uk}, M_{us}, M_{cu}, M_{bu})$$</div><div class="formula-number">(1-2-16a)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_16b">$$M_{ut2} = C \times A_t \cdot F_{t2} \cdot (d - x_u)$$</div><div class="formula-number">(1-2-16b)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_17">$$M_u = M_{ut}$$、$$M_{ut} = A_t \cdot F_t \cdot (d - x_a)$$</div><div class="formula-number">(1-2-17)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_18">$$N_{yb} = x_b \cdot y_b \cdot F_e$$、$$M_{uk} = N_{yb} (d - x_a)$$</div><div class="formula-number">(1-2-18)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_19">$$N_{us} = A_s F_s$$、$$M_{us} = N_{us} (d - x_a)$$</div><div class="formula-number">(1-2-19)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_20">$$A_s = (2x_b + y_b) \cdot l_e / 1.5$$</div><div class="formula-number">(1-2-20)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_21">$$M_{cu} = Z_c \cdot F_{bc}$$</div><div class="formula-number">(1-2-21)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_22">$$M_{bu} = Z_B \cdot F_{bB}$$</div><div class="formula-number">(1-2-22)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_23">$$\theta_y = \frac{M_y}{K_\theta}$$</div><div class="formula-number">(1-2-23)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_24">$$\theta_{u2} = \frac{\eta \cdot l}{j}$$</div><div class="formula-number">(1-2-24)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_25">$$\theta_u = \min(\theta_{u2}, 1/15)$$</div><div class="formula-number">(1-2-25)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_26">$$\text{塑性率} \mu = \frac{\theta_u}{\theta_y}$$</div><div class="formula-number">(1-2-26)</div></div>
+        <div class="formula-block"><div class="formula-math" id="eq_1_2_27">$$\text{}_s M_a = \min(M_y, 0.2 M_u \sqrt{2\mu - 1})$$</div><div class="formula-number">(1-2-27)</div></div>
+    </div>
+</div>
+
+<script src="../js/common.js"></script>
+<script src="../js/rigid_frame_R.js"></script>
+</div>
+</body>
+</html>

@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>逆Ｌ型・逆Ｔ型擁壁の計算書</title>
+    <script>
+        if (window.location.protocol !== 'file:') {
+            fetch('/api/check_auth.php')
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (data && data.authenticated === false) {
+                        window.location.replace('/login.html');
+                    }
+                })
+                .catch(err => console.warn("Auth check failed:", err));
+        }
+    </script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/youheki_calculator.css">
+</head>
+<body>
+<div class="tool-container">
+    <div id="global-header-container"></div>
+
+    <div id="app" class="youheki-card">
+
+        <!-- NG Warning Modal -->
+        <div v-if="showWarningModal" class="modal-overlay no-print" @click.self="showWarningModal = false">
+            <div class="modal-content">
+                <h3 style="color: #ef4444; margin-top:0;">⚠️ 警告</h3>
+                <p>計算結果に「NG」の項目が含まれています。<br>そのまま出力画面（PDF/印刷）に進みますか？</p>
+                <div style="text-align: right; margin-top: 20px;">
+                    <button @click="showWarningModal = false" class="youheki-btn" style="background-color:#64748b; margin-right:10px;">戻る</button>
+                    <button @click="executePrint" class="youheki-btn" style="background-color:#ef4444;">印刷に進む</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Design Conditions Guide Modal -->
+        <div v-if="showGuideModal" class="modal-overlay no-print" @click.self="showGuideModal = false">
+            <div class="modal-content" style="max-width: 600px; max-height: 85vh; overflow-y: auto;">
+                <h3 style="color: var(--primary, #0f172a); margin-top:0; border-bottom: 2px solid var(--accent); padding-bottom: 8px;">ℹ️ 設計条件・入力ガイド</h3>
+                
+                <div style="font-size: 0.9rem; line-height: 1.6; color: #334155;">
+                    <h4 style="margin: 12px 0 4px 0; color: var(--accent);">① 上載荷重 q</h4>
+                    <p style="margin: 0 0 8px 0;">・木造2階建て程度の建築物：<strong>10.0 kN/m²</strong> を標準とします。<br>・駐車場等の場合：<strong>5.0 kN/m²</strong> を標準とします。<br>・その他の場合は適宜設定してください。</p>
+
+                    <h4 style="margin: 12px 0 4px 0; color: var(--accent);">② フェンス荷重 (天端)</h4>
+                    <p style="margin: 0 0 8px 0;">擁壁天端にフェンスを設置する場合は、風圧等の水平荷重 (kN/m) を入力してください。カタログ値等で確認します。</p>
+
+                    <h4 style="margin: 12px 0 4px 0; color: var(--accent);">③ 土の比重 γs</h4>
+                    <p style="margin: 0 0 8px 0;">・粘性土：<strong>16.0 kN/m³</strong><br>・砂質土：<strong>18.0 kN/m³</strong> を標準とします。</p>
+
+                    <h4 style="margin: 12px 0 4px 0; color: var(--accent);">④ 土圧係数 Ka</h4>
+                    <p style="margin: 0 0 8px 0;">・擁壁背面を盛土する場合：<strong>0.50</strong> を標準とします。<br>・山留め・切土の場合：<strong>0.40</strong> を標準とします。</p>
+
+                    <h4 style="margin: 12px 0 4px 0; color: var(--accent);">⑤ 根入れ深さ Df と 前趾土重 W3</h4>
+                    <p style="margin: 0 0 8px 0;">・根入れ深さ Df (m) を入力すると、前趾上面に乗る土の重量 <strong>W3 = γs × B1 × Df</strong> が自動計算され、安定計算の抵抗重量・抵抗モーメントに加算されます。</p>
+
+                    <h4 style="margin: 12px 0 4px 0; color: var(--accent);">⑥ 滑動・地盤抵抗の検討</h4>
+                    <p style="margin: 0 0 8px 0;">・粘性土：N値等から定めた粘着力 c と底版の摩擦力<br>・砂質土：内部摩擦角 φ から求めた摩擦係数 μ<br>・地盤改良：摩擦係数 <strong>0.50</strong> を標準とします。</p>
+
+                    <h4 style="margin: 12px 0 4px 0; color: var(--accent);">⑦ 適用範囲</h4>
+                    <p style="margin: 0 0 8px 0;">・擁壁の見付け高さ Hw ≦ 2.0m 程度を標準とします。<br>・断面算定がNGとなる場合は、壁厚 tw や底版厚 tb を調整してください。</p>
+                </div>
+
+                <div style="text-align: right; margin-top: 20px;">
+                    <button @click="showGuideModal = false" class="youheki-btn" style="background-color: var(--accent);">閉じる</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="youheki-controls no-print">
+            <button @click="showGuideModal = true" class="youheki-btn" style="background-color:#0284c7;">ℹ️ 設計条件ガイド</button>
+            <button @click="handlePrint" class="youheki-btn youheki-btn-print">🖨️ PDF / 印刷</button>
+            <button @click="saveJSON" class="youheki-btn youheki-btn-success">💾 JSONで保存</button>
+            <label class="youheki-btn" style="background:var(--accent, #2563eb); margin: 0; display: inline-flex; align-items: center;">
+                📁 JSONを読込
+                <input type="file" @change="loadJSON" accept=".json" style="display:none;">
+            </label>
+        </div>
+
+        <h1 class="tool-title" style="justify-content: center; text-align: center;">【逆Ｌ型・逆Ｔ型擁壁の計算書】</h1>
+
+        <div class="no-print" style="margin-bottom:30px; background:#f8fafc; padding:20px; border-radius:var(--radius-md, 10px); border: 1px solid var(--border-color, #e2e8f0);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h2 style="margin:0; font-size:1.2rem; border-left:4px solid var(--accent); padding-left:8px; background:none; color:var(--primary);">入力条件設定 (印刷時は非表示)</h2>
+                <button @click="showGuideModal = true" class="youheki-btn" style="background-color:#0284c7; padding: 4px 10px; font-size: 0.85rem;">ℹ️ 条件ガイドを確認</button>
+            </div>
+            
+            <div style="display:flex; gap:20px; flex-wrap:wrap;">
+                <div style="flex:1; min-width:300px;">
+                    <h3 style="font-size:1rem; color:var(--primary);">擁壁寸法</h3>
+                    <table class="youheki-table">
+                        <tr><th>壁の全高 Hw (m)</th><td><input type="number" v-model.number="p.Hw" step="0.05"></td></tr>
+                        <tr><th>壁厚 tw (m)</th><td><input type="number" v-model.number="p.tw" step="0.05"></td></tr>
+                        <tr><th>底版厚 tb (m)</th><td><input type="number" v-model.number="p.tb" step="0.05"></td></tr>
+                        <tr><th>前趾長 B1 (m)</th><td><input type="number" v-model.number="p.B1" step="0.05"></td></tr>
+                        <tr><th>後趾長 B2 (m)</th><td><input type="number" v-model.number="p.B2" step="0.05"></td></tr>
+                        <tr><th>根入れ深さ Df (m) <br><small style="font-weight:normal; color:#64748b;">(前趾上の土高)</small></th><td><input type="number" v-model.number="p.Df" step="0.05"></td></tr>
+                        <tr><th>背面土の高さ H_soil (m)</th><td><input type="number" v-model.number="p.Hsoil" step="0.05"></td></tr>
+                    </table>
+                    <h3 style="font-size:1rem; color:var(--primary);">配筋設定 (シングル)</h3>
+                    <table class="youheki-table">
+                        <tr>
+                            <th>縦筋 (主筋)</th>
+                            <td>
+                                <select v-model="p.vRebarType">
+                                    <option value="D10">D10</option>
+                                    <option value="D13">D13</option>
+                                    <option value="D16">D16</option>
+                                    <option value="D10D13">D10-D13交互</option>
+                                    <option value="D13D16">D13-D16交互</option>
+                                </select>
+                                @
+                                <select v-model.number="p.vRebarPitch">
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                    <option value="150">150</option>
+                                    <option value="200">200</option>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>横筋 (配力筋)</th>
+                            <td>
+                                <select v-model="p.hRebarType">
+                                    <option value="D10">D10</option>
+                                    <option value="D13">D13</option>
+                                    <option value="D16">D16</option>
+                                    <option value="D10D13">D10-D13交互</option>
+                                    <option value="D13D16">D13-D16交互</option>
+                                </select>
+                                @
+                                <select v-model.number="p.hRebarPitch">
+                                    <option value="100">100</option>
+                                    <option value="150">150</option>
+                                    <option value="200">200</option>
+                                    <option value="300">300</option>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>許容検定比</th>
+                            <td><input type="number" v-model.number="p.ratioLimit" step="0.01"></td>
+                        </tr>
+                    </table>
+                </div>
+                <div style="flex:1; min-width:300px;">
+                    <h3 style="font-size:1rem; color:var(--primary);">荷重・地盤条件</h3>
+                    <table class="youheki-table">
+                        <tr><th>上載荷重 q (kN/m²)</th><td><input type="number" v-model.number="p.q" step="1.0"></td></tr>
+                        <tr><th>フェンス荷重 (kN/m)</th><td><input type="number" v-model.number="p.P_fence" step="0.1"></td></tr>
+                        <tr><th>コンクリート比重 γc (kN/m³)</th><td><input type="number" v-model.number="p.gamma_c" step="0.5"></td></tr>
+                        <tr><th>土の比重 γs (kN/m³)</th><td><input type="number" v-model.number="p.gamma_s" step="0.5"></td></tr>
+                        <tr><th>土圧係数 Ka</th><td><input type="number" v-model.number="p.Ka" step="0.05"></td></tr>
+                        <tr><th>粘着力 c (kN/m²)</th><td><input type="number" v-model.number="p.c" step="1.0"></td></tr>
+                        <tr><th>摩擦係数 μ</th><td><input type="number" v-model.number="p.mu" step="0.1"></td></tr>
+                        <tr><th>許容地耐力 qa (kN/m²)</th><td><input type="number" v-model.number="p.qa" step="1.0"></td></tr>
+                    </table>
+                    <h3 style="font-size:1rem; color:var(--primary);">材料・許容応力度</h3>
+                    <table class="youheki-table">
+                        <tr><th>基準強度 Fc (N/mm²)</th><td><input type="number" v-model.number="p.fc" step="3"></td></tr>
+                        <tr><th>鉄筋許容引張 ft (N/mm²)</th><td><input type="number" v-model.number="p.ft" step="10"></td></tr>
+                        <tr><th>許容せん断 τa (N/mm²)</th><td><input type="number" v-model.number="p.tau_a" step="0.01"></td></tr>
+                        <tr><th>有効かぶり dt (cm)</th><td><input type="number" v-model.number="p.dt" step="0.5"></td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 1. 形状寸法および各種定数 -->
+        <h2 style="font-size:1.1rem; border-left:4px solid var(--accent); padding-left:8px; color:var(--primary);">1. 形状寸法・計算モデル</h2>
+        
+        <svg viewBox="0 0 540 500" class="youheki-svg" style="max-width:100%; height:auto; background:#ffffff; border:1px solid #cbd5e0; border-radius:6px; margin:10px 0;">
+            <defs>
+                <!-- Arrowhead Markers -->
+                <marker id="arrow-down" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb" />
+                </marker>
+                <marker id="arrow-right" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#ea580c" />
+                </marker>
+
+                <!-- Hatching Pattern for Earth -->
+                <pattern id="earth-hatch" width="10" height="10" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
+                    <line x1="0" y1="0" x2="0" y2="10" stroke="#ca8a04" stroke-width="1.5" opacity="0.4" />
+                </pattern>
+                <pattern id="front-soil-hatch" width="8" height="8" patternTransform="rotate(-45 0 0)" patternUnits="userSpaceOnUse">
+                    <line x1="0" y1="0" x2="0" y2="8" stroke="#65a30d" stroke-width="1.5" opacity="0.4" />
+                </pattern>
+            </defs>
+
+            <!-- 前趾上の土領域 (W3/Df) -->
+            <polygon v-if="p.B1 > 0 && p.Df > 0" :points="`${sx(0)},${sy(p.tb+p.Df)} ${sx(p.B1)},${sy(p.tb+p.Df)} ${sx(p.B1)},${sy(p.tb)} ${sx(0)},${sy(p.tb)}`" fill="url(#front-soil-hatch)" />
+            <line v-if="p.B1 > 0 && p.Df > 0" :x1="sx(-0.15)" :y1="sy(p.tb+p.Df)" :x2="sx(p.B1)" :y2="sy(p.tb+p.Df)" stroke="#65a30d" stroke-width="1.5" stroke-dasharray="3" />
+
+            <!-- 背面土領域 (W4/Hsoil) -->
+            <polygon v-if="p.B2 > 0" :points="`${sx(p.B1+p.tw)},${sy(p.Hsoil)} ${sx(c_B)},${sy(p.Hsoil)} ${sx(c_B)},${sy(p.tb)} ${sx(p.B1+p.tw)},${sy(p.tb)}`" fill="url(#earth-hatch)" />
+            <line :x1="sx(p.B1+p.tw)" :y1="sy(p.Hsoil)" :x2="sx(c_B + 0.3)" :y2="sy(p.Hsoil)" stroke="#ca8a04" stroke-width="2" />
+            <line :x1="sx(0)" :y1="sy(p.tb)" :x2="sx(c_B)" :y2="sy(p.tb)" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4" />
+
+            <!-- 擁壁躯体 (Concrete) -->
+            <polygon :points="wallPoints" fill="#e2e8f0" stroke="#1e293b" stroke-width="2" stroke-linejoin="round" />
+
+            <!-- 各部荷重矢印 & ラベル (W1, W2, W3, W4) -->
+            <g font-size="10" font-weight="bold" fill="#1e3a8a">
+                <!-- W1: 縦壁自重 -->
+                <line :x1="sx(p.B1 + p.tw/2)" :y1="sy(p.tb + p.Hw * 0.75)" :x2="sx(p.B1 + p.tw/2)" :y2="sy(p.tb + p.Hw * 0.45)" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrow-down)" />
+                <rect :x="sx(p.B1 + p.tw/2)-10" :y="sy(p.tb + p.Hw * 0.75)-12" width="20" height="12" fill="#ffffff" opacity="0.8" rx="2" />
+                <text :x="sx(p.B1 + p.tw/2)" :y="sy(p.tb + p.Hw * 0.75)-3" text-anchor="middle" fill="#2563eb">W1</text>
+
+                <!-- W2: 後趾底版自重 -->
+                <g v-if="p.B2 > 0">
+                    <line :x1="sx(p.B1 + p.tw + p.B2/2)" :y1="sy(p.tb + 0.25)" :x2="sx(p.B1 + p.tw + p.B2/2)" :y2="sy(p.tb * 0.2)" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrow-down)" />
+                    <rect :x="sx(p.B1 + p.tw + p.B2/2)-10" :y="sy(p.tb + 0.25)-12" width="20" height="12" fill="#ffffff" opacity="0.8" rx="2" />
+                    <text :x="sx(p.B1 + p.tw + p.B2/2)" :y="sy(p.tb + 0.25)-3" text-anchor="middle" fill="#2563eb">W2</text>
+                </g>
+
+                <!-- W3: 前趾上部土重 / 前趾自重 -->
+                <g v-if="p.B1 > 0">
+                    <line :x1="sx(p.B1/2)" :y1="sy(p.tb + (p.Df > 0 ? p.Df : 0.3))" :x2="sx(p.B1/2)" :y2="sy(p.tb * 0.2)" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrow-down)" />
+                    <rect :x="sx(p.B1/2)-10" :y="sy(p.tb + (p.Df > 0 ? p.Df : 0.3))-12" width="20" height="12" fill="#ffffff" opacity="0.8" rx="2" />
+                    <text :x="sx(p.B1/2)" :y="sy(p.tb + (p.Df > 0 ? p.Df : 0.3))-3" text-anchor="middle" fill="#2563eb">W3</text>
+                </g>
+
+                <!-- 水平土圧 P -->
+                <line :x1="sx(c_B + 0.25)" :y1="sy(p.Hsoil * 0.33)" :x2="sx(p.B1 + p.tw)" :y2="sy(p.Hsoil * 0.33)" stroke="#ea580c" stroke-width="2" marker-end="url(#arrow-right)" />
+                <text :x="sx(c_B + 0.28)" :y="sy(p.Hsoil * 0.33)+4" fill="#ea580c">Ps</text>
+            </g>
+
+            <!-- 鉄筋配置 (青色太線 & 円点) -->
+            <g>
+                <!-- 主筋線 -->
+                <polyline :points="rebarData.rearRebarPoints" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+                <polyline :points="rebarData.frontRebarPoints" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+
+                <!-- 横筋・配力筋 (丸点) -->
+                <circle v-for="(dot, idx) in rebarData.dots" :key="`dot-${idx}`" :cx="dot.cx" :cy="dot.cy" r="2.5" fill="#2563eb" stroke="#1d4ed8" stroke-width="0.5" />
+
+                <!-- 配筋引き出し線 & 注記テキスト (文字サイズ・重なり配慮) -->
+                <g v-for="(lbl, idx) in rebarData.labels" :key="`label-${idx}`">
+                    <polyline :points="lbl.points" fill="none" stroke="#3b82f6" stroke-width="1.2" />
+                    <circle :cx="lbl.points.split(' ')[0].split(',')[0]" :cy="lbl.points.split(' ')[0].split(',')[1]" r="2" fill="#1d4ed8" />
+                    <!-- テキストバックグラウンド (読みやすさ確保) -->
+                    <rect :x="lbl.anchor === 'end' ? lbl.tx - 65 : lbl.tx - 2" :y="lbl.ty - 10" width="67" height="13" fill="#ffffff" opacity="0.9" rx="2" />
+                    <text :x="lbl.tx" :y="lbl.ty" font-size="10" font-family="sans-serif" font-weight="600" fill="#1e3a8a" :text-anchor="lbl.anchor">{{ lbl.text }}</text>
+                </g>
+
+                <!-- かぶり厚さ指示テキスト (例: 48, 68) -->
+                <text v-for="(cov, idx) in rebarData.covers" :key="`cov-${idx}`" :x="cov.x" :y="cov.y" font-size="9" fill="#64748b" text-anchor="middle" font-style="italic">{{ cov.text }}</text>
+            </g>
+
+            <!-- 縦横の寸法線 -->
+            <g font-size="10" fill="#334155" text-anchor="middle">
+                <!-- 水平寸法線 -->
+                <g v-for="(h, idx) in dimData.hDims" :key="`hdim-${idx}`">
+                    <line :x1="h.x1" :y1="h.y" :x2="h.x2" :y2="h.y" stroke="#64748b" stroke-width="1" />
+                    <line :x1="h.x1" :y1="h.y - 4" :x2="h.x1" :y2="h.y + 4" stroke="#64748b" stroke-width="1" />
+                    <line :x1="h.x2" :y1="h.y - 4" :x2="h.x2" :y2="h.y + 4" stroke="#64748b" stroke-width="1" />
+                    <rect :x="(h.x1 + h.x2)/2 - 12" :y="h.y - 11" width="24" height="10" fill="#ffffff" opacity="0.8" />
+                    <text :x="(h.x1 + h.x2)/2" :y="h.y - 3" font-size="9.5">{{ h.text }}</text>
+                </g>
+
+                <!-- 垂直寸法線 -->
+                <g v-for="(v, idx) in dimData.vDims" :key="`vdim-${idx}`">
+                    <line :x1="v.x" :y1="v.y1" :x2="v.x" :y2="v.y2" stroke="#64748b" stroke-width="1" />
+                    <line :x1="v.x - 4" :y1="v.y1" :x2="v.x + 4" :y2="v.y1" stroke="#64748b" stroke-width="1" />
+                    <line :x1="v.x - 4" :y1="v.y2" :x2="v.x + 4" :y2="v.y2" stroke="#64748b" stroke-width="1" />
+                    <rect :x="v.x - 14" :y="(v.y1 + v.y2)/2 - 6" width="28" height="12" fill="#ffffff" opacity="0.8" />
+                    <text :x="v.x" :y="(v.y1 + v.y2)/2 + 3" font-size="9.5">{{ v.text }}</text>
+                </g>
+            </g>
+
+            <!-- 接地圧分布図 (Ground Pressure Diagram) -->
+            <g class="ground-pressure-group">
+                <text :x="groundPressureData.x0 - 5" :y="groundPressureData.baseY + 15" font-size="10" font-weight="bold" fill="#334155" text-anchor="end">接地圧</text>
+                
+                <!-- ゼロ線 -->
+                <line :x1="groundPressureData.x0" :y1="groundPressureData.baseY" :x2="groundPressureData.xEnd" :y2="groundPressureData.baseY" stroke="#475569" stroke-width="1.5" />
+                
+                <!-- 接地圧台形/三角形塗りつぶし -->
+                <polygon :points="groundPressureData.polygonPoints" fill="#cbd5e1" opacity="0.6" stroke="#334155" stroke-width="1.5" stroke-linejoin="round" />
+
+                <!-- 壁心高さ破線 -->
+                <line :x1="groundPressureData.xWallCenter" :y1="groundPressureData.baseY" :x2="groundPressureData.xWallCenter" :y2="groundPressureData.baseY + groundPressureData.midH" stroke="#475569" stroke-width="1" stroke-dasharray="3" />
+
+                <!-- 接地圧数値表示 (端部 & 壁心) -->
+                <g font-size="10.5" font-weight="bold" fill="#0f172a">
+                    <!-- 左端 -->
+                    <text :x="groundPressureData.x0 - 6" :y="groundPressureData.baseY + groundPressureData.leftH / 2 + 4" text-anchor="end">{{ f(groundPressureData.leftVal, 1) }}</text>
+                    <!-- 壁心 -->
+                    <text :x="groundPressureData.xWallCenter + 4" :y="groundPressureData.baseY + groundPressureData.midH / 2 + 4" text-anchor="start" font-size="9.5" fill="#475569">:{{ f(groundPressureData.midVal, 1) }}</text>
+                    <!-- 右端 -->
+                    <text :x="groundPressureData.xEnd + 6" :y="groundPressureData.baseY + groundPressureData.rightH / 2 + 4" text-anchor="start">{{ f(groundPressureData.rightVal, 1) }}</text>
+                </g>
+            </g>
+        </svg>
+
+        <table class="youheki-table">
+            <tr>
+                <th>底版全幅 B (m)</th>
+                <td>B = B1 + tw + B2 = {{f(p.B1)}} + {{f(p.tw)}} + {{f(p.B2)}} = <strong>{{f(c_B)}} m</strong></td>
+            </tr>
+            <tr>
+                <th>擁壁タイプ</th>
+                <td><strong>{{ p.B1 > 0 ? (p.B2 > 0 ? '逆Ｔ型擁壁' : '逆Ｌ型擁壁') : 'L型擁壁' }}</strong></td>
+            </tr>
+        </table>
+
+        <!-- 2. 荷重計算 -->
+        <h2 style="font-size:1.1rem; border-left:4px solid var(--accent); padding-left:8px; color:var(--primary);">2. 荷重計算 (単位幅 1.0m 当たり)</h2>
+        
+        <h3>2.1 鉛直荷重 V および 転倒モーメントの軸まわりモーメント Mr</h3>
+        <table class="youheki-table">
+            <thead>
+                <tr>
+                    <th>荷重の種類</th>
+                    <th>自重・土重 V (kN)</th>
+                    <th>作用位置 x (m) <br><small>(前趾先端より)</small></th>
+                    <th>モーメント Mr (kN·m)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>① 縦壁自重 (W1)</td>
+                    <td>{{f(p.gamma_c)}} × {{f(p.tw)}} × {{f(p.Hw)}} = {{f(c_W1)}}</td>
+                    <td>{{f(p.B1)}} + {{f(p.tw)}}/2 = {{f(c_x1)}}</td>
+                    <td>{{f(c_W1 * c_x1)}}</td>
+                </tr>
+                <tr v-if="p.B2 > 0">
+                    <td>② 後趾底版自重 (W2)</td>
+                    <td>{{f(p.gamma_c)}} × {{f(p.B2)}} × {{f(p.tb)}} = {{f(c_W2)}}</td>
+                    <td>{{f(p.B1)}} + {{f(p.tw)}} + {{f(p.B2)}}/2 = {{f(c_x2)}}</td>
+                    <td>{{f(c_W2 * c_x2)}}</td>
+                </tr>
+                <tr v-if="p.B1 > 0">
+                    <td>③ 前趾底版自重 (W_base1)</td>
+                    <td>{{f(p.gamma_c)}} × {{f(p.B1)}} × {{f(p.tb)}} = {{f(c_W_base1)}}</td>
+                    <td>{{f(p.B1)}} / 2 = {{f(c_x3)}}</td>
+                    <td>{{f(c_W_base1 * c_x3)}}</td>
+                </tr>
+                <tr v-if="p.B1 > 0 && p.Df > 0">
+                    <td>④ 前趾上部土重 (W3)</td>
+                    <td>{{f(p.gamma_s)}} × {{f(p.B1)}} × {{f(p.Df)}} = {{f(c_W3)}}</td>
+                    <td>{{f(p.B1)}} / 2 = {{f(c_x3)}}</td>
+                    <td>{{f(c_W3 * c_x3)}}</td>
+                </tr>
+                <tr v-if="p.B2 > 0">
+                    <td>⑤ 後趾上部土重 (W4)</td>
+                    <td>{{f(p.gamma_s)}} × {{f(p.B2)}} × {{f(c_hw)}} = {{f(c_W4)}}</td>
+                    <td>{{f(c_x4)}}</td>
+                    <td>{{f(c_W4 * c_x4)}}</td>
+                </tr>
+                <tr v-if="p.B2 > 0 && p.q > 0">
+                    <td>⑥ 上載荷重 (W5)</td>
+                    <td>{{f(p.q)}} × {{f(p.B2)}} = {{f(c_W5)}}</td>
+                    <td>{{f(c_x5)}}</td>
+                    <td>{{f(c_W5 * c_x5)}}</td>
+                </tr>
+            </tbody>
+            <tfoot>
+                <tr style="background:#f1f5f9; font-weight:bold;">
+                    <td>合計</td>
+                    <td>ΣV = {{f(c_sumV)}} kN</td>
+                    <td>-</td>
+                    <td>ΣMr = {{f(c_Mr)}} kN·m</td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <h3>2.2 水平荷重 H および 転倒モーメント Mt</h3>
+        <div class="formula-box">
+            <div class="formula-row">・土圧による水平力 Ps = 0.5 × Ka × γs × H_soil² = 0.5 × {{f(p.Ka)}} × {{f(p.gamma_s)}} × {{f(p.Hsoil)}}² = <strong>{{f(c_Ps)}} kN</strong> (作用高さ ys = {{f(c_ys)}} m)</div>
+            <div class="formula-row" v-if="p.q > 0">・上載荷重による水平力 Pq = Ka × q × H_soil = {{f(p.Ka)}} × {{f(p.q)}} × {{f(p.Hsoil)}} = <strong>{{f(c_Pq)}} kN</strong> (作用高さ yq = {{f(c_yq)}} m)</div>
+            <div class="formula-row" v-if="p.P_fence > 0">・フェンス荷重 Pfence = <strong>{{f(p.P_fence)}} kN</strong> (モーメント Mfence = {{f(c_M_fence)}} kN·m)</div>
+            <div class="formula-row" style="margin-top:10px; border-top:1px dashed #cbd5e0; padding-top:8px;">
+                <strong>合計水平力 ΣH = {{f(c_sumH)}} kN</strong><br>
+                <strong>合計転倒モーメント ΣMt = {{f(c_Mt)}} kN·m</strong>
+            </div>
+        </div>
+
+        <!-- 3. 安定計算 -->
+        <h2 style="font-size:1.1rem; border-left:4px solid var(--accent); padding-left:8px; color:var(--primary);">3. 安定計算</h2>
+        
+        <h3>3.1 地盤反力度 (地耐力の検討)</h3>
+        <div class="formula-box">
+            <div class="formula-row">偏心量 e = B / 2 - (ΣMr - ΣMt) / ΣV = {{f(c_B)}} / 2 - ({{f(c_Mr)}} - {{f(c_Mt)}}) / {{f(c_sumV)}} = <strong>{{f(c_e, 3)}} m</strong> (許容限界 B/6 = {{f(c_B/6, 3)}} m)</div>
+            
+            <div v-if="c_e <= c_B / 6">
+                <div class="formula-row">※ e ≤ B/6 より、台形分布</div>
+                <div class="formula-row">最大地盤反力 σ_max = (ΣV / B) × (1 + 6e / B) = <strong>{{f(c_sigma_max)}} kN/m²</strong></div>
+                <div class="formula-row">最小地盤反力 σ_min = (ΣV / B) × (1 - 6e / B) = <strong>{{f(c_sigma_min)}} kN/m²</strong></div>
+            </div>
+            <div v-else>
+                <div class="formula-row" style="color:#ef4444;">※ e > B/6 より、三角形分布 (底版一部離脱)</div>
+                <div class="formula-row">最大地盤反力 σ_max = 2·ΣV / (3·(B/2 - e)) = <strong>{{f(c_sigma_max)}} kN/m²</strong></div>
+                <div class="formula-row">最小地盤反力 σ_min = <strong>0.00 kN/m²</strong></div>
+            </div>
+
+            <div style="margin-top:10px; font-size:1rem;">
+                最大地盤応力度: <strong>{{f(c_sigma_max)}} kN/m²</strong> ≦ 許容地耐力 qa: {{f(p.qa)}} kN/m² 
+                <span class="judgement" :class="c_sigma_max <= p.qa ? 'ok' : 'ng'">{{ c_sigma_max <= p.qa ? 'OK' : 'NG' }}</span>
+            </div>
+        </div>
+
+        <h3>3.2 転倒に対する検討</h3>
+        <div class="formula-box">
+            <div class="formula-row">安全率 Fo = ΣMr / ΣMt = {{f(c_Mr)}} / {{f(c_Mt)}} = <strong>{{f(c_Fo)}}</strong> (必要安全率 Fo_a = 1.5)</div>
+            <div style="font-size:1rem;">
+                転倒安全率: <strong>{{f(c_Fo)}}</strong> ≧ 1.50 
+                <span class="judgement" :class="c_Fo >= 1.5 ? 'ok' : 'ng'">{{ c_Fo >= 1.5 ? 'OK' : 'NG' }}</span>
+            </div>
+        </div>
+
+        <h3>3.3 滑動に対する検討</h3>
+        <div class="formula-box">
+            <div class="formula-row">安全率 Fs = (ΣV × μ + c × B) / ΣH = ({{f(c_sumV)}} × {{f(p.mu)}} + {{f(p.c)}} × {{f(c_B)}}) / {{f(c_sumH)}} = <strong>{{f(c_Fs)}}</strong> (必要安全率 Fs_a = 1.5)</div>
+            <div style="font-size:1rem;">
+                滑動安全率: <strong>{{f(c_Fs)}}</strong> ≧ 1.50 
+                <span class="judgement" :class="c_Fs >= 1.5 ? 'ok' : 'ng'">{{ c_Fs >= 1.5 ? 'OK' : 'NG' }}</span>
+            </div>
+        </div>
+
+        <!-- 4. 断面計算 (縦壁) -->
+        <h2 class="page-break" style="font-size:1.1rem; border-left:4px solid var(--accent); padding-left:8px; color:var(--primary);">4. 縦壁の断面算定 (付け根位置)</h2>
+        <div class="formula-box">
+            <div class="formula-row">・縦壁高 hw = H_soil - tb = {{f(c_hw)}} m</div>
+            <div class="formula-row">・作用曲げモーメント Mw = Ka·γs·hw³/6 + Ka·q·hw²/2 + Pfence·hw = <strong>{{f(c_Mw)}} kN·m</strong></div>
+            <div class="formula-row">・作用せん断力 Qw = Ka·γs·hw²/2 + Ka·q·hw + Pfence = <strong>{{f(c_Qw)}} kN</strong></div>
+        </div>
+
+        <h3>4.1 曲げ応力度・必要鉄筋量</h3>
+        <div class="formula-box">
+            <div class="formula-row">・有効成 d = tw × 100 - dt = {{f(p.tw*100)}} - {{f(p.dt)}} = <strong>{{f(c_d)}} cm</strong></div>
+            <div class="formula-row">・応力心距離 j = 7/8 × d = <strong>{{f(c_j)}} cm</strong></div>
+            <div class="formula-row">・必要鉄筋量 at = (Mw × 10²) / (ft/10 × j) = ({{f(c_Mw)}} × 100) / ({{f(p.ft/10)}} × {{f(c_j)}}) = <strong>{{f(c_at)}} cm²/m</strong></div>
+            <div class="formula-row">・配備鉄筋量 aa ({{p.vRebarType}}@{{p.vRebarPitch}}) = <strong>{{f(c_aa)}} cm²/m</strong></div>
+            
+            <div style="margin-top:10px; font-size:1rem;">
+                検定比 (at / aa) = <strong>{{f(c_rebarRatio, 3)}}</strong> ≦ {{f(p.ratioLimit, 2)}} 
+                <span class="judgement" :class="c_rebarRatio <= p.ratioLimit ? 'ok' : 'ng'">{{ c_rebarRatio <= p.ratioLimit ? 'OK' : 'NG' }}</span>
+            </div>
+        </div>
+
+        <h3>4.2 せん断応力度</h3>
+        <div class="formula-box">
+            <div class="formula-row">・せん断応力度 τ = (Qw × 10³) / (b × j × 10) = ({{f(c_Qw)}} × 1000) / (1000 × {{f(c_j)}} × 10) = <strong>{{f(c_tau, 3)}} N/mm²</strong></div>
+            <div style="margin-top:10px; font-size:1rem;">
+                せん断応力度: <strong>{{f(c_tau, 3)}} N/mm²</strong> ≦ 許容値 τa: {{f(p.tau_a, 2)}} N/mm² 
+                <span class="judgement" :class="c_tau <= p.tau_a ? 'ok' : 'ng'">{{ c_tau <= p.tau_a ? 'OK' : 'NG' }}</span>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="../js/common.js"></script>
+<script src="../js/youheki_calculator.js"></script>
+</body>
+</html>

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <script>
+        if (window.location.protocol !== 'file:') {
+            fetch('/api/check_auth.php')
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (data && data.authenticated === false) {
+                        window.location.replace('/login.html');
+                    }
+                })
+                .catch(err => console.warn("Auth check failed:", err));
+        }
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>はしご垂木 計算書</title>
+    <link rel="stylesheet" href="../css/common.css">
+    <style>
+        /* ツール固有のスタイル */
+        .container { max-width: 1000px; margin: auto; background: #fff; padding: 20px 30px; box-shadow: 0 4px 8px rgba(0,0,0,0.05); border-radius: 8px; }
+        h1 { font-size: 1.5em; border-bottom: 2px solid #2c3e50; padding-bottom: 10px; margin-bottom: 20px; text-align: center; }
+        h2 { font-size: 1.1em; color: #2c3e50; margin-top: 25px; border-left: 5px solid #2c3e50; padding-left: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+        th, td { border: 1px solid #dcdde1; padding: 8px 10px; font-size: 14px; text-align: left; }
+        th { background-color: #f1f2f6; width: 18%; }
+        .input-group th { background-color: #e3f2fd; color: #0d47a1; }
+        .material-group th { background-color: #f3e5f5; color: #4a148c; }
+        
+        .result-table { table-layout: fixed; }
+        .result-table th, .result-table td { text-align: center; vertical-align: middle; }
+        .result-table th:first-child { text-align: left; }
+        .result-cell { text-align: left; display: inline-block; }
+        
+        input, select { width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; background: #fff; font-size: 14px; }
+        input:focus { border-color: #2196f3; outline: none; background: #fffde7; }
+        .text-right { text-align: right; }
+        .ok { color: #27ae60; font-weight: bold; font-size: 1.1em; }
+        .ng { color: #c0392b; font-weight: bold; font-size: 1.1em; }
+        .note { font-size: 12px; color: #555; margin-top: -10px; margin-bottom: 20px; }
+        
+        .btn-back:hover { background: #2d3748 !important; }
+
+        /* コントロールパネル */
+        .controls { background: #fff; padding: 15px; border-radius: 6px; border: 1px solid #cbd5e0; margin: 0 auto 15px auto; max-width: 1000px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .btn { padding: 8px 16px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 0.95em; }
+        .btn-primary { background: #3182ce; color: white; }
+        .btn-primary:hover { background: #2b6cb0; }
+        .btn-success { background: #38a169; color: white; }
+        .btn-success:hover { background: #2f855a; }
+        .btn-print { background: #2d3748; color: white; font-size: 1em; }
+        .btn-print:hover { background: #1a202c; }
+
+        /* --- 印刷用スタイル (A4 タテ) --- */
+        @media print {
+            * { box-sizing: border-box !important; }
+            body { background: #fff; margin: 0; padding: 0; font-size: 10pt; width: 210mm; }
+            .no-print { display: none !important; }
+            #global-header-container { display: none !important; }
+            
+            /* 外部拡張機能（AI Chat等）のアイコンを非表示にする試み */
+            body > *:not(.container):not(.nav-controls):not(#global-header-container):not(script):not(style) {
+                display: none !important;
+            }
+
+            .container { 
+                box-shadow: none; 
+                border: 1px solid #ccc; 
+                padding: 10mm; 
+                width: 180mm; /* A4幅 210mm - 左右余白 15mm*2 = 180mm */
+                margin: 0 auto;
+                max-width: none; 
+                border-radius: 0; 
+            }
+            h1 { font-size: 16pt; border-bottom: 2px solid #000; margin-bottom: 8mm; }
+            h2 { font-size: 12pt; border-bottom: 1px solid #000; padding-bottom: 2px; }
+            table { border: 2px solid #000 !important; width: 100% !important; table-layout: fixed; }
+            th, td { border: 1px solid #000 !important; padding: 4px 6px; }
+            th { background-color: #eee !important; color: #000; -webkit-print-color-adjust: exact; }
+            
+            input, select { border: none; background: transparent !important; font-weight: bold; padding: 0; color: #000; -webkit-appearance: none; -moz-appearance: none; appearance: none; pointer-events: none; width: 100%; font-family: inherit; }
+            select::-ms-expand { display: none; }
+            
+            @page { margin: 10mm 15mm; size: A4 portrait; }
+        }
+    </style>
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body>
+<div class="tool-container">
+    <div id="global-header-container"></div>
+
+    <div class="controls no-print">
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="exportData()">💾 状態を保存</button>
+            <button class="btn btn-success" onclick="document.getElementById('json_upload').click()">📁 ファイルを読込</button>
+            <input type="file" id="json_upload" accept=".json" style="display:none;" onchange="importData(event)">
+        </div>
+        <button class="btn btn-print" onclick="attemptPrint()">🖨 計算書を印刷する (A4タテ)</button>
+    </div>
+
+    <div class="container">
+        <h1>はしご垂木 計算書</h1>
+
+        <h2>1. 基本条件入力</h2>
+        <table class="input-group">
+            <tr>
+                <th>垂木幅 b (mm)</th><td><input type="number" id="b" value="45" oninput="calc()"></td>
+                <th>垂木せい h (mm)</th><td><input type="number" id="h" value="60" oninput="calc()"></td>
+                <th>屋根勾配 (寸)</th><td><input type="number" id="pitch" value="3" oninput="calc()"></td>
+            </tr>
+            <tr>
+                <th>負担幅 (m)</th><td><input type="number" id="spacing" value="0.303" step="0.001" oninput="calc()"></td>
+                <th>はね出し長さ L (m)</th><td><input type="number" id="L" value="1.0" step="0.1" oninput="calc()"></td>
+                <th>固定荷重 Wg (N/㎡)</th><td><input type="number" id="Wg" value="360" oninput="calc()"></td>
+            </tr>
+            <tr>
+                <th>積雪荷重 sWs (N/㎡)</th><td><input type="number" id="sWs" value="600" oninput="calc()"></td>
+                <th>速度圧 q (N/㎡)</th><td><input type="number" id="q" value="861" oninput="calc()"></td>
+                <th>Cpe</th><td><input type="number" id="Cpe" value="1" oninput="calc()"></td>
+            </tr>
+            <tr>
+                <th>Kz</th><td><input type="number" id="Kz" value="1" oninput="calc()"></td>
+                <td colspan="4"></td>
+            </tr>
+        </table>
+        <div class="note text-right">※Wg,ｓWs,q,Cpe,Kzの値は（アーキトレンド）構造計算プログラムから転載</div>
+
+        <h2>2. 樹種・基準強度 (任意入力可)</h2>
+        <table class="material-group">
+            <tr>
+                <th>樹種選択</th>
+                <td colspan="5">
+                    <select id="mat_select" onchange="updateMaterialInfo()">
+                        <option value="custom">-- 任意入力 --</option>
+                        <option value="すぎ">すぎ</option>
+                        <option value="スプルース" selected>スプルース (ｽﾌﾟﾙｽ)</option>
+                        <option value="ひのき">ひのき</option>
+                        <option value="べいまつ">べいまつ</option>
+                        <option value="E105-F300">E105-F300</option>
+                        <option value="E135-F375">E135-F375</option>
+                        <option value="E95-F315">E95-F315</option>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <th>曲げ Fb (N/mm²)</th><td><input type="number" id="in_Fb" value="22.2" step="0.1" oninput="calc()"></td>
+                <th>せん断 Fs (N/mm²)</th><td><input type="number" id="in_Fs" value="1.8" step="0.1" oninput="calc()"></td>
+                <th>ヤング係数 E (kN/mm²)</th><td><input type="number" id="in_E" value="7" step="0.5" oninput="calc()"></td>
+            </tr>
+        </table>
+
+        <h2>3. 断面性能</h2>
+        <table>
+            <colgroup>
+                <col style="width: 18%;">
+                <col style="width: 32%;">
+                <col style="width: 18%;">
+                <col style="width: 32%;">
+            </colgroup>
+            <tr>
+                <th>断面積 A (mm²)</th><td id="out_A" class="text-right"></td>
+                <th>断面係数 Z (mm³)</th><td id="out_Z" class="text-right"></td>
+            </tr>
+            <tr>
+                <th>断面二次 I (mm⁴)</th><td id="out_I" class="text-right"></td>
+                <th>cosθ</th><td id="out_cosTheta" class="text-right"></td>
+            </tr>
+        </table>
+
+        <h2>4. 検定結果</h2>
+        <table class="result-table">
+            <colgroup>
+                <col style="width: 13%;">
+                <col style="width: 11%;">
+                <col style="width: 11%;">
+                <col style="width: 11%;">
+                <col style="width: 18%;">
+                <col style="width: 18%;">
+                <col style="width: 18%;">
+            </colgroup>
+            <thead>
+                <tr>
+                    <th>検討項目</th>
+                    <th>等分布荷重<br>w (N/m)</th>
+                    <th>曲げ<br>M (N･m)</th>
+                    <th>せん断<br>Q (N)</th>
+                    <th>曲げ応力検定<br>σ / fb ≦ 1</th>
+                    <th>せん断応力検定<br>τ / fs ≦ 1</th>
+                    <th>たわみ検定<br>δ ≦ 許容値</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <th>[長期]</th>
+                    <td id="l_w"></td>
+                    <td id="l_M"></td>
+                    <td id="l_Q"></td>
+                    <td>
+                        <div class="result-cell">
+                            応力: <span id="l_sig"></span><br>
+                            許容: <span id="l_fb"></span><br>
+                            比率: <span id="l_sig_r"></span> <span id="l_sig_j"></span>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="result-cell">
+                            応力: <span id="l_tau"></span><br>
+                            許容: <span id="l_fs"></span><br>
+                            比率: <span id="l_tau_r"></span> <span id="l_tau_j"></span>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="result-cell">
+                            変位: <span id="l_d"></span> mm<br>
+                            許容: <span id="l_dlim"></span> mm<br>
+                            比率: <span id="l_d_r"></span> <span id="l_d_j"></span>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <th>[短期積雪時]</th>
+                    <td id="s_w"></td>
+                    <td id="s_M"></td>
+                    <td id="s_Q"></td>
+                    <td>
+                        <div class="result-cell">
+                            応力: <span id="s_sig"></span><br>
+                            許容: <span id="s_fb"></span><br>
+                            比率: <span id="s_sig_r"></span> <span id="s_sig_j"></span>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="result-cell">
+                            応力: <span id="s_tau"></span><br>
+                            許容: <span id="s_fs"></span><br>
+                            比率: <span id="s_tau_r"></span> <span id="s_tau_j"></span>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="result-cell">
+                            変位: <span id="s_d"></span> mm<br>
+                            許容: <span id="s_dlim"></span> mm<br>
+                            比率: <span id="s_d_r"></span> <span id="s_d_j"></span>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <th>[短期風圧時]</th>
+                    <td id="w_w"></td>
+                    <td id="w_M"></td>
+                    <td id="w_Q"></td>
+                    <td>
+                        <div class="result-cell">
+                            応力: <span id="w_sig"></span><br>
+                            許容: <span id="w_fb"></span><br>
+                            比率: <span id="w_sig_r"></span> <span id="w_sig_j"></span>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="result-cell">
+                            応力: <span id="w_tau"></span><br>
+                            許容: <span id="w_fs"></span><br>
+                            比率: <span id="w_tau_r"></span> <span id="w_tau_j"></span>
+                        </div>
+                    </td>
+                    <td>-</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/hashigo.js"></script>
+</div>
+</body>
+</html>

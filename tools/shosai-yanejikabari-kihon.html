@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>面材直張り勾配屋根 詳細計算 [規定仕様]</title>
+    <script>
+        if (window.location.protocol !== 'file:') {
+            fetch('/api/check_auth.php')
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (data && data.authenticated === false) {
+                        window.location.replace('/login.html');
+                    }
+                })
+                .catch(err => console.warn("Auth check failed:", err));
+        }
+    </script>
+    <link rel="stylesheet" href="../css/common.css">
+    <style>
+        .grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        @media (max-width: 900px) { .grid-layout { grid-template-columns: 1fr; } }
+        
+        .card { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; margin-bottom: 15px; }
+        h2 { font-size: 1.05em; color: #fff; background: #2c5282; padding: 6px 12px; margin: -15px -15px 15px -15px; border-radius: 8px 8px 0 0; }
+        
+        .input-group { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; border-bottom: 1px dotted #e2e8f0; padding-bottom: 3px; }
+        .input-group label { font-weight: bold; font-size: 0.85em; flex: 1; min-width: 140px; }
+        .input-group input, .input-group select { width: 100px; padding: 4px; border: 1px solid #cbd5e0; border-radius: 3px; text-align: right; font-size: 0.9em; }
+        .input-group select { text-align: left; }
+        .unit { width: 45px; margin-left: 5px; font-size: 0.8em; color: #718096; text-align: left; }
+
+        .scope-box { background: #f7fafc; padding: 12px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #e2e8f0; font-size: 0.85em; }
+        .warn-box { display: none; background: #fff5f5; border: 1px solid #feb2b2; color: #c53030; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 0.85em; font-weight: bold; }
+
+        .result-step { margin-bottom: 15px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 10px; }
+        .formula { display: block; color: #2b6cb0; font-family: monospace; margin: 4px 0; background: #ebf8ff; padding: 4px 8px; border-left: 3px solid #3182ce; font-size: 0.95em; }
+        .result-step strong { display: block; margin-bottom: 4px; color: #2d3748; }
+
+        @media print {
+            .no-print { display: none !important; }
+            .grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+            .card { box-shadow: none; border: 1px solid #000; }
+            @page { margin: 10mm; size: A4 portrait; }
+        }
+        .btn-back:hover { background: #2d3748 !important; }
+
+        /* 結果ハイライト領域 */
+        .final-highlight { border: 3px solid #e53e3e; background: #fff5f5; padding: 15px; margin-top: 20px; border-radius: 8px; text-align: center; display: none; }
+        .final-highlight h3 { color: #c53030; margin-top: 0; }
+        .highlight-value { font-size: 2em; font-weight: bold; color: #c53030; display: block; margin: 10px 0; }
+    </style>
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body>
+<div class="tool-container">
+    <div id="global-header-container"></div>
+
+<h1>面材直張り勾配屋根 詳細計算書 [規定仕様]</h1>
+
+<div class="sticky-header no-print">
+    <div style="display:flex; gap:10px; margin-left: auto;">
+        <button class="btn-success" onclick="calc()">🔄 計算実行</button>
+        <button class="btn-print" onclick="window.print()">🖨 計算書を印刷 (A4タテ)</button>
+    </div>
+</div>
+
+<div class="scope-box">
+    <strong>■ 適用範囲・注意事項</strong><br>
+    ・本計算書は「木造軸組工法住宅の許容応力度設計（2017年版）」第3章3.6.1項に準拠します。<br>
+    ・面材のせん断耐力について、屋根勾配による水平投影面積への換算（cosθ乗算）を行っています。
+</div>
+
+<div class="grid-layout no-print">
+    <div class="left-col">
+        <div class="card">
+            <h2>1. 面材と支持材仕様</h2>
+            <div class="input-group">
+                <label>構造用合板</label>
+                <select id="panel_spec" onchange="updateOptions()">
+                    <option value="12_2">厚12mm (2級)</option>
+                    <option value="12_1" selected>厚12mm (特類・1級)</option>
+                    <option value="24_1">厚24mm (特類・1級)</option>
+                    <option value="28_1">厚28mm (特類・1級)</option>
+                </select>
+            </div>
+            <div class="input-group"><label>面材釘種類</label><select id="nail_type" onchange="calc()"></select></div>
+            <div class="input-group">
+                <label>支持材(下地)</label>
+                <select id="support_type" onchange="calc()">
+                    <option value="rafter" selected>登り梁 (＠910等)</option>
+                    <option value="purlin">母屋・登り淀 (横使い)</option>
+                </select>
+            </div>
+            <div id="warn_purlin" class="warn-box">
+                面材両端部と釘ピッチに90×90以上の受け材を必ず施工して釘打ちできるようにすること。
+            </div>
+            <div id="warn_nail" class="warn-box"></div>
+        </div>
+    </div>
+
+    <div class="right-col">
+        <div class="card">
+            <h2>2. 釘配列と屋根勾配 (1820×910)</h2>
+            <div class="input-group">
+                <label>支持材ピッチ</label>
+                <div style="display:flex; gap:5px;">
+                    <select id="base_p_sel" disabled style="width:65px; background-color: #e2e8f0;"><option value="910">910</option></select>
+                    <input type="number" id="base_p_val" value="910" readonly style="width:45px; background-color: #e2e8f0;">
+                </div>
+            </div>
+            <div class="input-group">
+                <label>釘ピッチ (@)</label>
+                <select id="nail_pitch" onchange="calc()">
+                    <option value="150" selected>@150 mm</option>
+                    <option value="100">@100 mm</option>
+                    <option value="75">@75 mm</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>釘配置パターン</label>
+                <select id="nail_pattern" onchange="calc()">
+                    <option value="川型" selected>横置・川型</option>
+                    <option value="山型">横置・山型</option>
+                    <option value="日型">横置・日型</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>屋根勾配 (寸)</label>
+                <input type="number" id="roof_slope" value="4.0" step="0.5" onchange="calc()"><span class="unit">寸/10</span>
+            </div>
+            <div style="font-size:0.8em; color:#718096; margin-top:8px; border-top:1px solid #edf2f7; padding-top:4px;">
+                G:<span id="ref_G">-</span>, fs:<span id="ref_fs">-</span>, k:<span id="ref_k">-</span>, Pv:<span id="ref_Pv">-</span><br>
+                引用データ: <span id="arrangement-data">Ixy = -, Zxy = -, Cxy = -</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card" id="results" style="display:none; grid-column: 1 / -1;">
+    <h2>計算過程と結果</h2>
+    <div id="output" style="padding: 10px; font-size: 0.95em; line-height: 1.6;"></div>
+    
+    <div id="final-highlight" class="final-highlight">
+        <h3 id="highlight-title">許容せん断耐力 ΔQa (水平投影面積あたり)</h3>
+        <span id="highlight-value" class="highlight-value">--- kN/m</span>
+        <div id="highlight-judge" style="font-weight:bold; margin-top:10px;"></div>
+    </div>
+</div>
+
+<script src="../js/common.js"></script>
+<script src="../js/shosai-yanejikabari-kihon.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        initApp();
+        calc();
+    });
+</script>
+</div>
+</body>
+</html>

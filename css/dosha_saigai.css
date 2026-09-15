@@ -1,0 +1,136 @@
+/* 土砂災害計算ツール固有スタイル (dosha_saigai.css) */
+
+.dosha-main-container {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 24px;
+    align-items: start;
+}
+
+@media (max-width: 1024px) {
+    .dosha-main-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+.dosha-control-panel {
+    background: #ffffff;
+    padding: 20px;
+    border-radius: var(--radius-md, 10px);
+    border: 1px solid var(--border-color, #e2e8f0);
+    box-shadow: var(--shadow-md, 0 4px 6px -1px rgba(0,0,0,0.05));
+    position: sticky;
+    top: 20px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+}
+
+.dosha-control-panel h3 {
+    margin-top: 0;
+    margin-bottom: 16px;
+    font-size: 1.1rem;
+    color: var(--primary, #0f172a);
+    border-bottom: 2px solid var(--accent, #2563eb);
+    padding-bottom: 6px;
+}
+
+.print-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+}
+
+.sheet {
+    background: #ffffff;
+    width: 210mm;
+    min-height: 297mm;
+    padding: 15mm;
+    box-shadow: var(--shadow-lg, 0 10px 15px -3px rgba(0,0,0,0.1));
+    box-sizing: border-box;
+    margin-bottom: 24px;
+    border-radius: 4px;
+    color: #1e293b;
+}
+
+.sheet h1 {
+    font-size: 14pt;
+    text-align: center;
+    border-bottom: 2px solid #0f172a;
+    padding-bottom: 6px;
+    margin-top: 0;
+    color: #0f172a;
+}
+
+.sheet h2 {
+    font-size: 11pt;
+    border-left: 4px solid #2563eb;
+    padding-left: 8px;
+    margin-top: 20px;
+    margin-bottom: 8px;
+    color: #1e293b;
+}
+
+.formula-box {
+    background: #f8fafc;
+    padding: 8px 12px;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    margin-bottom: 12px;
+    overflow-x: auto;
+}
+
+.legend { font-size: 8.5pt; line-height: 1.5; margin-bottom: 12px; }
+.legend ul { padding-left: 18px; margin: 4px 0; }
+
+.alert-box {
+    background-color: #fffbe6;
+    border: 1px solid #ffe58f;
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    font-size: 8.5pt;
+    color: #873800;
+    line-height: 1.6;
+}
+
+.danger-box {
+    background-color: #fff1f0;
+    border: 1px solid #ffa39e;
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    font-size: 9pt;
+    color: #cf1322;
+    line-height: 1.5;
+    font-weight: bold;
+    display: none;
+}
+
+.form-group { margin-bottom: 10px; }
+.form-group label { display: block; font-size: 0.82rem; font-weight: 700; color: #475569; margin-bottom: 4px; }
+.form-group input, .form-group select {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-size: 0.9rem;
+}
+
+.conditions-table th { background-color: #f1f5f9; width: 35%; text-align: left; padding-left: 8px;}
+.conditions-table td { text-align: left; padding-left: 8px;}
+
+.ok-text { color: #10b981; font-weight: bold; }
+.ng-text { color: #ef4444; font-weight: bold; }
+
+@media print {
+    body { background: #ffffff !important; padding: 0 !important; }
+    .dosha-main-container { display: block !important; }
+    .dosha-control-panel { display: none !important; }
+    .print-area { display: block !important; padding: 0 !important; }
+    .sheet { box-shadow: none !important; width: 100% !important; min-height: auto !important; padding: 0 !important; margin: 0 !important; border-radius: 0 !important; }
+    .formula-box { overflow-x: visible !important; white-space: normal; }
+    .page-break { page-break-before: always; margin-top: 10mm; }
+    @page { size: A4 portrait; margin: 12mm 15mm; }
+}

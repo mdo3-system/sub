@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>人通口補強計算書（スラブ内割増筋）</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    </script>
+    <link rel="stylesheet" href="../css/common.css">
+    <style>
+        body { font-family: "Helvetica Neue", Arial, sans-serif; background-color: #f0f4f8; margin: 0; padding: 20px; color: #2d3748; line-height: 1.5; }
+        h1 { color: #2b6cb0; border-bottom: 3px solid #3182ce; padding-bottom: 10px; margin-top: 0; font-size: 1.6em; }
+        .header-inputs { display: flex; flex-wrap: wrap; gap: 15px; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        .header-inputs div { display: flex; flex-direction: column; }
+        .header-inputs label { font-size: 0.85em; font-weight: bold; color: #4a5568; margin-bottom: 4px; }
+        .header-inputs input, .header-inputs select { padding: 6px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 0.95em; }
+        .json-area { background: #f0fff4; padding: 10px 15px; border-radius: 8px; border: 2px dashed #38a169; margin-bottom: 15px; }
+        .sticky-header { position: sticky; top: 0; z-index: 1000; background-color: #f0f4f8; padding: 10px 0; border-bottom: 2px solid #cbd5e0; margin-bottom: 20px; }
+        .pdf-extract-area { background: #e6fffa; padding: 12px 15px; border-radius: 8px; border: 2px dashed #38b2ac; margin-bottom: 10px; }
+        .toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+        button { padding: 8px 16px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 0.95em; }
+        button:hover { opacity: 0.8; }
+        .btn-primary { background: #3182ce; color: #fff; }
+        .btn-add { background: #4a5568; color: #fff; }
+        .btn-clear { background: #e53e3e; color: #fff; }
+        .btn-success { background: #38a169; color: #fff; }
+        .btn-calc { background: #dd6b20; color: #fff; width: 100%; padding: 10px; margin-top: 15px; box-shadow: 0 3px 0 #c05621; }
+        .btn-print { background: #2d3748; color: #fff; font-size: 1.1em; padding: 10px 20px; }
+        button:disabled { background: #a0aec0; cursor: not-allowed; }
+        #globalError { font-weight: bold; font-size: 1em; }
+        .card { background: #fff; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-left: 6px solid #3182ce; }
+        .card h3 { margin: 0; color: #2c5282; font-size: 1.15em; }
+        .row { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 12px; }
+        .grid div { display: flex; flex-direction: column; }
+        .grid label { font-size: 0.85em; font-weight: bold; color: #4a5568; margin-bottom: 4px; }
+        .grid input, .grid select { padding: 6px; border: 1px solid #cbd5e0; border-radius: 4px; }
+        .stress-section { background: #f7fafc; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0; margin-top: 15px; }
+        .stress-section-title { font-size: 0.9em; font-weight: bold; color: #2b6cb0; margin-bottom: 8px; border-bottom: 1px solid #bee3f8; padding-bottom: 4px; }
+        .pill { padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: bold; color: #fff; }
+        .pill.ok { background: #38a169; } .pill.ng { background: #e53e3e; } .pill.na { background: #a0aec0; }
+        .res-footer { font-size: 0.9em; color: #2d3748; background: #ebf8fa; padding: 10px 15px; border-radius: 6px; margin-top: 15px; display: flex; flex-wrap: wrap; gap: 15px; border: 1px solid #b2f5ea; align-items: center;}
+        .val-hl { font-size: 1.1em; color: #c53030; font-weight: bold; }
+        dialog { border: none; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); padding: 20px; width: 400px; }
+        dialog::backdrop { background: rgba(0,0,0,0.5); }
+
+        /* --- 印刷用デザイン --- */
+        #printPages { display: none; }
+        @media print {
+            .no-print, .sticky-header, dialog, #global-header-container { display: none !important; }
+            body, .tool-container { background: #fff !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; border: none !important; }
+            #printPages { display: block !important; width: 100% !important; }
+            .page { page-break-after: always; width: 100%; box-sizing: border-box; font-size: 9pt; background: #fff; }
+            .page-header { border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-end; }
+            .hdr-title { font-size: 15pt; font-weight: bold; }
+            .mrow, .mrow2 { display: flex; gap: 15px; margin-top: 5px; }
+            .mlbl { font-weight: bold; color: #555; }
+            .hdr-right { text-align: right; font-size: 8pt; color: #666; }
+            .spec-figure { border: 1px solid #000; padding: 10px; margin-bottom: 15px; background: #fff; }
+            .spec-images { display: flex; justify-content: space-around; align-items: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #ccc; }
+            .spec-images img { max-height: 150px; max-width: 48%; object-fit: contain; }
+            .page-body { display: flex; flex-wrap: wrap; justify-content: space-between; row-gap: 15px; margin-bottom: 20px; }
+            .block { border: 1px solid #000; padding: 10px; page-break-inside: avoid; width: calc(50% - 7.5px); box-sizing: border-box; }
+            .block-head { display: flex; justify-content: space-between; border-bottom: 1px solid #000; padding-bottom: 5px; margin-bottom: 5px; font-weight: bold; }
+            .bjudge.ok { color: #000; } .bjudge.ng { color: red; }
+            .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; font-size: 8.5pt; margin-bottom: 10px; }
+            .kv .k { color: #555; display: inline-block; width: 60px; }
+            .kv .v { font-weight: bold; }
+            .cond { background: #eee; padding: 5px; font-size: 8pt; margin-bottom: 5px; border: 1px dotted #000; }
+            .tbl { width: 100%; border-collapse: collapse; font-size: 8.5pt; text-align: center; }
+            .tbl th, .tbl td { border: 1px solid #000; padding: 3px; }
+            .tbl th { background: #ddd; }
+            .tbl .num { text-align: right; }
+            .page-footer { display: flex; justify-content: space-between; font-size: 8pt; border-top: 1px solid #ccc; padding-top: 5px; }
+            @page { size: A4 portrait; margin: 12mm 15mm; }
+        }
+        .btn-back:hover { background: #2d3748 !important; }
+    </style>
+</head>
+<body>
+<div class="tool-container">
+    <div id="global-header-container"></div>
+
+    <div class="no-print">
+        <h1 id="main_title">人通口補強計算書（スラブ内割増筋）</h1>
+
+        <div class="card-panel" style="display:flex; gap:20px; align-items:flex-end; padding:15px 20px; margin-bottom:20px;">
+            <div style="width: 120px;"><label style="font-weight:bold; font-size:0.85rem; color:var(--text-muted);">Fc (N/mm²)</label><select id="p_fc" onchange="window.updateAllCardsFc()"><option value="18">18</option><option value="21" selected>21</option><option value="24">24</option><option value="27">27</option><option value="30">30</option></select></div>
+            <div style="flex:1;"><label style="font-weight:bold; font-size:0.85rem; color:var(--text-muted);">備考</label><input type="text" id="p_note" placeholder="基礎スラブ内人通口補強" oninput="window.updatePrintPreview()"></div>
+        </div>
+
+    <div class="json-area">
+        <h3 style="margin: 0 0 5px 0; color: #22543d; font-size: 1em;">📁 保存データ (JSON) 読込</h3>
+        <input type="file" id="json_upload" accept=".json" onchange="window.importData(event)">
+    </div>
+
+    <div class="sticky-header" id="stickyArea">
+        <div class="pdf-extract-area">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3 style="margin:0;"><span style="font-size:1.2em;">📄</span> 応力抽出 (PDF/Excel)</h3>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn-primary" style="background:#38b2ac; padding:10px; font-size:1.05em;" onclick="document.getElementById('pdf_upload').click()">📄 PDFを選択</button>
+                    <button class="btn-primary" style="background:#805ad5; padding:10px; font-size:1.05em;" onclick="document.getElementById('xlsx_upload').click()">📊 Excel(XLSX)から読込</button>
+                    <input type="file" id="pdf_upload" accept="application/pdf" style="display:none;">
+                    <input type="file" id="xlsx_upload" accept=".xlsx" style="display:none;">
+                </div>
+            </div>
+            <div style="margin-top:10px; display:flex; align-items:center; gap:10px;">
+                <span id="loading_msg" style="color:#2d3748; font-weight:bold; font-size:0.95em; background:#fff; padding:4px 12px; border-radius:4px; border:2px solid #cbd5e0; min-width:180px; text-align:center;">ソース未読込</span>
+                <label style="font-weight:bold; margin-left:15px;">抽出指定:</label>
+                <input type="text" id="target_line" placeholder="Y7" style="width:50px; text-align:center;"> 通り
+                <input type="text" id="target_start" placeholder="X6" style="width:50px; text-align:center;"> 〜
+                <input type="text" id="target_end" placeholder="X7" style="width:50px; text-align:center;"> 間
+                <button class="btn-primary" onclick="window.executeExtraction()">抽出して追加 ↓</button>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <div class="btn-group">
+                <button class="btn-add" id="btnAdd">＋ 手動追加</button>
+                <button class="btn-success" onclick="window.exportData()">💾 JSON保存</button>
+                <button class="btn-clear" id="btnClear">全てクリア</button>
+            </div>
+            <div style="display:flex; align-items:center; gap:15px;">
+                <span id="globalError" style="color:#e53e3e;">カードを追加してください。</span>
+                <button class="btn-print" id="btnPrint" disabled>🖨 印刷実行</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="cards"></div>
+
+    <dialog id="dlg">
+      <h3 style="margin-top:0; color:#2c5282;">🖨 印刷プレビューの確認</h3>
+      <p id="dlg_msg">すべての検定がクリアされています。<br>印刷プレビューに進みますか？</p>
+      <label style="cursor:pointer; font-weight:bold;"><input type="checkbox" id="agree" checked> 判定結果を確認しました</label>
+      <div style="margin-top: 20px; display:flex; justify-content:flex-end; gap:10px;">
+        <button onclick="document.getElementById('dlg').close()" style="background:#e2e8f0; padding:8px 16px; border:none; border-radius:4px; cursor:pointer;">キャンセル</button>
+        <button id="btnDlgPrint" style="background:#2d3748; color:white; padding:8px 16px; border:none; border-radius:4px; cursor:pointer;">印刷を実行</button>
+      </div>
+    </dialog>
+</div>
+
+<div id="printPages"></div>
+
+<script src="../js/common.js"></script>
+<script src="../js/jintsuko.js?v=2" defer></script>
+</body>
+</html>

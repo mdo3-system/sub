@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>釘配列諸定数 計算書</title>
+    <script>
+        if (window.location.protocol !== 'file:') {
+            fetch('/api/check_auth.php')
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (data && data.authenticated === false) {
+                        window.location.replace('/login.html');
+                    }
+                })
+                .catch(err => console.warn("Auth check failed:", err));
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <link rel="stylesheet" href="../css/common.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" onload="initApp()"></script>
+    <style>
+        :root { --primary: #2c3e50; --bg: #ecf0f1; --border: #bdc3c7; }
+        body { font-family: "Meiryo", "Yu Gothic", sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: #333; line-height: 1.5; }
+        .controls { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; max-width: 1000px; margin-left: auto; margin-right: auto; }
+        .controls h2 { margin-top: 0; font-size: 1.2em; color: var(--primary); border-bottom: 2px solid var(--primary); padding-bottom: 5px; }
+        .input-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; margin-bottom: 15px; }
+        .input-group { display: flex; flex-direction: column; }
+        .input-group label { font-size: 0.85em; font-weight: bold; margin-bottom: 5px; color: #555; }
+        .input-group input, .input-group select { padding: 8px; border: 1px solid var(--border); border-radius: 4px; font-family: inherit; font-size: 1em; }
+        .input-group input[readonly], .input-group select[disabled] { background-color: #e8ecef; color: #7f8c8d; cursor: not-allowed; }
+        .btn-group { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; }
+        button { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; background-color: #3498db; color: white; font-weight: bold; transition: 0.2s; }
+        button:hover { background-color: #2980b9; }
+        .btn-secondary { background-color: #95a5a6; }
+        .btn-secondary:hover { background-color: #7f8c8d; }
+        .report-container { background: white; max-width: 210mm; margin: 0 auto; padding: 20mm; box-shadow: 0 0 10px rgba(0,0,0,0.1); box-sizing: border-box; min-height: 297mm; }
+        .report-header { border-bottom: 2px solid var(--primary); margin-bottom: 20px; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-end; }
+        .report-header h1 { margin: 0; font-size: 1.5em; }
+        .diagram-container { text-align: center; margin-bottom: 20px; padding: 15px; background: #fdfdfd; border: 1px solid #eee; border-radius: 8px; page-break-inside: avoid; }
+        .diagram-container h3 { margin: 0 0 10px 0; font-size: 1em; color: var(--primary); }
+        #svg_preview { max-width: 100%; max-height: 350px; background: white; border: 1px solid #ccc; box-shadow: 2px 2px 5px rgba(0,0,0,0.05); }
+        .summary-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        .summary-table th, .summary-table td { border: 1px solid var(--border); padding: 8px; text-align: center; font-size: 0.95em; }
+        .summary-table th { background-color: #f9f9f9; }
+        .step { margin-bottom: 25px; page-break-inside: avoid; }
+        .step-title { font-weight: bold; margin-bottom: 5px; font-size: 1.05em; border-left: 4px solid var(--primary); padding-left: 8px; }
+        .math-block { margin-left: 15px; padding: 5px 0; overflow-wrap: break-word; word-wrap: break-word; }
+        .note { font-size: 0.9em; color: #333; margin-left: 15px; margin-bottom: 5px; }
+        .alert-note { color: #2c3e50; font-weight: bold; margin-bottom: 15px; background: #e8f4f8; padding: 10px; border-left: 4px solid #3498db; }
+        .checkbox-group { display:flex; gap:12px; flex-wrap:wrap; background:#f9f9f9; padding:10px; border:1px solid var(--border); border-radius:4px; }
+        .checkbox-group label { cursor: pointer; display: flex; align-items: center; gap: 5px; font-weight: normal; color: #e74c3c; }
+        @media print {
+            body { background: white; padding: 0; }
+            .controls, .no-print { display: none !important; }
+            .report-container { box-shadow: none; padding: 0; margin: 0; width: 100%; max-width: none; }
+            @page { size: A4 portrait; margin: 15mm; }
+        }
+    </style>
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body>
+<div class="tool-container">
+    <div id="global-header-container"></div>
+
+    <div class="controls no-print">
+        <h2>条件設定（短辺自動判別・図表3.2.1準拠）</h2>
+        <div class="input-grid">
+            <div class="input-group">
+                <label>配置パターン</label>
+                <select id="inp_preset" onchange="onPresetChange()">
+                    <option value="example" selected>計算例（図3.2.2・完全一致）</option>
+                    <option value="v_kuchi">縦置き・口型（外周4辺のみ）</option>
+                    <option value="v_hi">縦置き・日型（外周4辺＋ヨコ中桟）</option>
+                    <option value="v_kawa">縦置き・川型（長辺のみ＋タテ中桟）</option>
+                    <option value="v_yama">縦置き・山型（長辺のみ＋タテ中桟）</option>
+                    <option value="h_kuchi">横置き・口型（外周4辺のみ）</option>
+                    <option value="h_hi">横置き・日型（外周4辺＋タテ中桟）</option>
+                    <option value="h_kawa">横置き・川型（長辺のみ＋ヨコ中桟）</option>
+                    <option value="h_yama">横置き・山型（長辺のみ＋ヨコ中桟）</option>
+                    <option value="custom">カスタム（自由配置）</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>物件名</label>
+                <input type="text" id="inp_project" value="サンプル物件" placeholder="物件名を入力">
+            </div>
+            <div class="input-group">
+                <label>面材 幅 (W) [cm]</label>
+                <input type="number" id="inp_w" value="61" step="0.1" oninput="forceCustom()">
+            </div>
+            <div class="input-group">
+                <label>面材 高さ (H) [cm]</label>
+                <input type="number" id="inp_h" value="91" step="0.1" oninput="forceCustom()">
+            </div>
+            <div class="input-group">
+                <label>ヘリアキ [cm]</label>
+                <input type="number" id="inp_edge" value="1.0" step="0.1" oninput="calculateAndRender()">
+            </div>
+            <div class="input-group">
+                <label>タテ桟（間柱）ピッチ [cm]</label>
+                <input type="number" id="inp_v_pitch" value="" step="0.1" placeholder="0で配置なし" oninput="forceCustom()">
+            </div>
+            <div class="input-grid" style="grid-column: span 2;">
+                <div class="input-group">
+                    <label>ヨコ桟（受材）ピッチ [cm]</label>
+                    <input type="number" id="inp_h_pitch" value="" step="0.1" placeholder="0で配置なし" oninput="forceCustom()">
+                </div>
+            </div>
+            <div class="input-group">
+                <label>外周部 釘ピッチ [cm]</label>
+                <select id="inp_nail_edge" onchange="calculateAndRender()">
+                    <option value="20">@200 mm</option>
+                    <option value="15" selected>@150 mm</option>
+                    <option value="10">@100 mm</option>
+                    <option value="7.5">@75 mm</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>中通部 釘ピッチ [cm]</label>
+                <select id="inp_nail_inner" onchange="calculateAndRender()">
+                    <option value="20">@200 mm</option>
+                    <option value="15" selected>@150 mm</option>
+                    <option value="10">@100 mm</option>
+                    <option value="7.5">@75 mm</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="input-group" style="margin-top:5px;">
+            <label>釘を打つライン（※チェックを入れた線上にのみ釘を配置します）</label>
+            <div class="checkbox-group">
+                <label><input type="checkbox" id="chk_top" onchange="forceCustom()"> 上辺</label>
+                <label><input type="checkbox" id="chk_bottom" onchange="forceCustom()"> 下辺</label>
+                <label><input type="checkbox" id="chk_left" onchange="forceCustom()"> 左辺</label>
+                <label><input type="checkbox" id="chk_right" onchange="forceCustom()"> 右辺</label>
+                <label><input type="checkbox" id="chk_mid_v" onchange="forceCustom()"> タテ中桟</label>
+                <label><input type="checkbox" id="chk_mid_h" onchange="forceCustom()"> ヨコ中桟</label>
+            </div>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn-secondary" onclick="window.print()">帳票を印刷</button>
+            <button class="btn-secondary" onclick="saveJSON()">条件を保存(JSON)</button>
+            <button class="btn-secondary" onclick="document.getElementById('file_load').click()">読込</button>
+            <input type="file" id="file_load" style="display:none" accept=".json" onchange="loadJSON(event)">
+        </div>
+    </div>
+
+    <div class="report-container" id="report">
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/kugihairetsushoteisu.js"></script>
+</div>
+</body>
+</html>

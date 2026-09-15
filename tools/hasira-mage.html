@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>柱の座屈と面外風圧力に対する断面検定書</title>
+    <script>
+        // 画面が描画される前に認証状態をチェック
+        fetch('/api/check_auth.php')
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.authenticated === false) {
+                    window.location.replace('/login.html');
+                }
+            })
+            .catch(err => {
+                console.warn("Auth check skipped or failed:", err);
+            });
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <style>
+        :root { --primary-color: #2c3e50; --secondary-color: #3498db; }
+        body { font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif; background-color: #f5f6fa; color: #333; line-height: 1.5; margin: 0; padding: 20px; }
+        .wrapper { display: flex; max-width: 1200px; margin: 0 auto; gap: 20px; }
+        .input-section { flex: 1; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); height: fit-content; }
+        .print-section { flex: 2; background: #fff; padding: 30px 40px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); min-height: 297mm; }
+        
+        h1, h2, h3 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 5px; }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-weight: bold; font-size: 0.9rem; margin-bottom: 4px; }
+        .form-group input, .form-group select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        
+        .btn-calc { background: var(--secondary-color); color: #fff; border: none; padding: 12px; width: 100%; font-size: 1rem; border-radius: 4px; cursor: pointer; font-weight: bold; margin-bottom: 10px; }
+        .btn-print { background: #e74c3c; color: #fff; border: none; padding: 12px; width: 100%; font-size: 1rem; border-radius: 4px; cursor: pointer; font-weight: bold; margin-bottom: 20px;}
+        
+        .action-buttons { display: flex; gap: 10px; margin-bottom: 10px; border-top: 1px solid #eee; padding-top: 15px;}
+        .btn-save { background: #27ae60; color: #fff; border: none; padding: 10px; width: 100%; font-size: 0.9rem; border-radius: 4px; cursor: pointer; }
+        .btn-load { background: #f39c12; color: #fff; border: none; padding: 10px; width: 100%; font-size: 0.9rem; border-radius: 4px; cursor: pointer; }
+        
+        .result-box { margin-bottom: 20px; }
+        .formula-box { background: #f8f9fa; border-left: 4px solid var(--secondary-color); padding: 10px 15px; margin: 10px 0; overflow-x: auto; font-size: 0.9rem;}
+        .calc-value { font-weight: bold; color: #d35400; }
+        
+        .diagram-container { display: flex; align-items: center; justify-content: center; margin: 20px 0; background: #fdfdfd; border: 1px solid #eee; border-radius: 4px; padding: 10px; }
+        canvas { max-width: 100%; }
+
+        /* A4印刷用の設定 */
+        @media print {
+            @page { size: A4 portrait; margin: 15mm; }
+            body { padding: 0; background-color: #fff; font-size: 10pt; }
+            .wrapper { display: block; max-width: 100%; margin: 0; gap: 0; }
+            .input-section { display: none; }
+            .print-section { width: 100%; padding: 0; box-shadow: none; border-radius: 0; min-height: auto; }
+            .formula-box { border: 1px solid #ddd; border-left: 4px solid var(--secondary-color); break-inside: avoid; }
+            .diagram-container { break-inside: avoid; }
+        }
+    </style>
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body>
+<div class="tool-container">
+    <div id="global-header-container"></div>
+    <h1 style="margin-bottom: 20px;">柱の曲げ計算（風圧力・軸力検定）</h1>
+    <div class="wrapper">
+    <div class="input-section no-print">
+        <h2>条件入力</h2>
+        <div class="form-group">
+            <label>樹種・強度等級:</label>
+            <select id="material">
+                <optgroup label="無等級材">
+                    <option value="20.7,26.7,ひのき(無等級)">ひのき (Fc:20.7, Fb:26.7)</option>
+                    <option value="17.7,22.2,すぎ(無等級)">すぎ (Fc:17.7, Fb:22.2)</option>
+                </optgroup>
+                <optgroup label="同一等級構成集成材">
+                    <option value="20.6,25.5,E65-F255(同一等級)">E65-F255 (Fc:20.6, Fb:25.5)</option>
+                    <option value="26.0,31.5,E95-F315(同一等級)">E95-F315 (Fc:26.0, Fb:31.5)</option>
+                </optgroup>
+                <optgroup label="対称異等級構成集成材（Fbは幅方向）">
+                    <option value="16.7,15.0,E65-F225(対象異等級)">E65-F225 (Fc:16.7, Fb幅:15.0)</option>
+                    <option value="23.2,21.6,E105-F300(対象異等級)">E105-F300 (Fc:23.2, Fb幅:21.6)</option>
+                    <option value="25.9,24.0,E120-F330(対象異等級)">E120-F330 (Fc:25.9, Fb幅:24.0)</option>
+                    <option value="29.7,27.6,E135-F375(対象異等級)">E135-F375 (Fc:29.7, Fb幅:27.6)</option>
+                </optgroup>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label>柱の幅 b [mm]:</label><input type="number" id="width" value="105">
+        </div>
+        <div class="form-group">
+            <label>柱のせい(見付) h [mm]:</label><input type="number" id="height" value="105">
+        </div>
+        <div class="form-group">
+            <label>座屈長さ lk [mm]:</label><input type="number" id="length" value="2730">
+        </div>
+        <div class="form-group">
+            <label>圧縮力 N [N]:</label><input type="number" id="axial" value="10000">
+        </div>
+
+        <h3 style="margin-top: 20px; font-size: 1rem;">面外風圧力の設定</h3>
+        <div class="form-group">
+            <label>速度圧 q [N/m²]:</label>
+            <input type="number" id="wind_q" value="1200">
+        </div>
+        <div class="form-group">
+            <label>負担幅 B [mm]:</label>
+            <input type="number" id="load_width" value="910">
+        </div>
+        <div class="form-group">
+            <label>風力係数 Cf:</label>
+            <select id="cf_coef">
+                <option value="1.0">1.0 (閉鎖型の外壁部等)</option>
+                <option value="1.2">1.2 (開放型の部分・ガレージ等)</option>
+            </select>
+        </div>
+
+        <button class="btn-calc" onclick="calculate()">計算実行</button>
+        <button class="btn-print" onclick="window.print()">PDFプレビュー＆保存</button>
+
+        <div class="action-buttons">
+            <button class="btn-save" onclick="saveData()">条件を保存 (JSON)</button>
+            <button class="btn-load" onclick="document.getElementById('fileInput').click()">条件を読込 (JSON)</button>
+            <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="loadData(event)">
+        </div>
+    </div>
+
+    <div class="print-section" id="print_area" style="visibility: hidden;">
+        <h1 style="text-align: center;">柱の座屈と面外風圧力に対する断面検定書</h1>
+        
+        <div class="result-box">
+            <h3>1. 設計条件</h3>
+            <ul>
+                <li>使用材料: <span id="out_mat" class="calc-value"></span></li>
+                <li>基準圧縮強度 \(F_c\): <span id="out_fc" class="calc-value"></span> \(\text{N/mm}^2\)</li>
+                <li>基準曲げ強度 \(F_b\): <span id="out_fb" class="calc-value"></span> \(\text{N/mm}^2\)</li>
+                <li>柱寸法: \(b \times h = \) <span id="out_b"></span> \(\times\) <span id="out_h"></span> \(\text{mm}\) （断面積 \(A = \) <span id="out_A"></span> \(\text{mm}^2\) , 断面係数 \(Z = \) <span id="out_Z"></span> \(\text{mm}^3\)）</li>
+                <li>座屈長さ \(l_k\): <span id="out_lk"></span> \(\text{mm}\)</li>
+                <li>速度圧 \(q\): <span id="out_q" class="calc-value"></span> \(\text{N/m}^2\)</li>
+                <li>負担幅 \(B\): <span id="out_B" class="calc-value"></span> \(\text{mm}\)</li>
+                <li>風力係数 \(C_f\): <span id="out_cf" class="calc-value"></span></li>
+            </ul>
+        </div>
+
+        <div class="result-box">
+            <h3>2. 応力の算定</h3>
+            <p>軸力 \(N = \) <span id="out_N" class="calc-value"></span> \(\text{N}\)</p>
+            
+            <p>風力による等分布荷重 \(w\) および曲げモーメント \(M\) の算定:</p>
+            <div class="formula-box">
+                <p>\(w = q \times \frac{B}{1000} \times C_f\)</p>
+                <p>\(w = \) <span id="out_q_val"></span> \(\times \frac{\text{<span id="out_B_val"></span>}}{1000} \times\) <span id="out_cf_val"></span> \(= \) <span id="out_w" class="calc-value"></span> \(\text{N/m}\)</p>
+                <p>\(M = \frac{w \cdot l_k^2}{8} \)</p>
+            </div>
+            <p>\(M = \) <span id="out_M" class="calc-value"></span> \(\text{N}\cdot\text{mm}\)</p>
+            
+            <div class="diagram-container">
+                <canvas id="mDiagram" width="300" height="200"></canvas>
+            </div>
+        </div>
+
+        <div class="result-box">
+            <h3>3. 許容応力度の算定根拠</h3>
+            
+            <div class="formula-box">
+                <b>有効細長比 \(\lambda\)</b>
+                <p>\(\lambda = \frac{l_k}{i} = \frac{l_k}{h / \sqrt{12}}\)</p>
+                <p>\(\lambda = \) <span id="out_lambda" class="calc-value"></span></p>
+            </div>
+
+            <div class="formula-box">
+                <b>座屈による強度低下を考慮した値 \(F_k\) 根拠式 (2.5.3.3)</b>
+                <p>
+                $$
+                F_k = \begin{cases} 
+                \lambda \leqq 30 \text{ の場合} & : F_c \\ 
+                30 < \lambda \leqq 100 \text{ の場合} & : (1.3 - 0.01\lambda) F_c \\ 
+                \lambda > 100 \text{ の場合} & : \frac{3000}{\lambda^2} F_c 
+                \end{cases} \dots (2.5.3.3)
+                $$
+                </p>
+                <p>\(\lambda\) の条件より、<span id="out_fk_calc"></span></p>
+                <p>\(F_k = \) <span id="out_Fk" class="calc-value"></span> \(\text{N/mm}^2\)</p>
+            </div>
+
+            <div class="formula-box">
+                <b>短期許容座屈応力度 \({}_s f_k\) 根拠式 (2.5.3.2)</b>
+                <p>
+                $$
+                f_k = \left\{ \dots, \text{短期}: \frac{2}{3} F_k \right\} \dots (2.5.3.2)
+                $$
+                </p>
+                <p>\({}_s f_k = \frac{2}{3} \times F_k = \) <span id="out_sfk" class="calc-value"></span> \(\text{N/mm}^2\)</p>
+            </div>
+            
+            <div class="formula-box">
+                <b>短期許容曲げ応力度 \({}_s f_b\)</b>
+                <p>\({}_s f_b = \frac{2}{3} F_b = \) <span id="out_sfb" class="calc-value"></span> \(\text{N/mm}^2\)</p>
+            </div>
+        </div>
+
+        <div class="result-box">
+            <h3>4. 断面検定 (2.5.3.4)</h3>
+            <div class="formula-box">
+                <b>鉛直荷重と面外風圧力が作用する柱の検定</b>
+                <p>
+                $$
+                \frac{N}{A \cdot {}_s f_k} + \frac{M}{Z \cdot {}_s f_b} \leqq 1.0 \dots\dots\dots (2.5.3.4)
+                $$
+                </p>
+                <p>圧縮応力比: \(\frac{N}{A \cdot {}_s f_k} = \) <span id="out_ratio_c"></span></p>
+                <p>曲げ応力比: \(\frac{M}{Z \cdot {}_s f_b} = \) <span id="out_ratio_b"></span></p>
+                <p style="font-size: 1.2em; font-weight: bold; text-align: center; margin-top: 15px;">
+                    検定比: <span id="out_ratio_total" class="calc-value"></span> \(\leqq 1.0\) 
+                    <span id="out_judge" style="margin-left: 20px;"></span>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/hasira-mage.js"></script>
+</div>
+</body>
+</html>
