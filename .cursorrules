@@ -30,7 +30,7 @@ AIエージェントは、以下の「バックアップ」および「バージ
     - コミット後、必ず `git push origin main` を行い、GitHubへプッシュすること。
     - **【重要】GitHubへのプッシュ完了後、必ず以下のSSHコマンド/デプロイスクリプトを実行し、本番Webサーバー(XServer)へ変更をデプロイすること。**
       - 接続先: `ssh -o BatchMode=yes -p 10022 mdo3@mdo3.xsrv.jp`
-      - ドキュメントルート: `/home/mdo3/thanks.work/public_html/sub/`
+      - ドキュメントルート: `/home/mdo3/thanks.work/public_html/kozo/`
       - デプロイ実行コマンド: `npm run deploy` (または `cmd /c scripts\deploy.bat`)
     - **【重要】データベースの変更（ALTER TABLE等のマイグレーションスクリプト）を作成した場合は、ユーザーにブラウザからアクセスさせるのではなく、AIが必ずSSH経由でコマンドラインから `php スクリプト名.php` を実行し、直接XServer上で反映させること。**
 
