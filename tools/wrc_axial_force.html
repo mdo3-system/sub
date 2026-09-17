@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WRC造 長期軸力分割ツール (荷重分割シミュレーター) | 構造計算補助ツール</title>
+    <script>
+        if (window.location.protocol !== 'file:') {
+            fetch('/api/check_auth.php')
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (data && data.authenticated === false) {
+                        window.location.replace('/login.html');
+                    }
+                })
+                .catch(err => console.warn("Auth check failed:", err));
+        }
+    </script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/wrc_axial_force.css">
+</head>
+<body>
+
+<div class="tool-container">
+    <!-- 共通ヘッダー（ポータル・WRCハブ戻りナビ、工事名称・計算日・設計者入力） -->
+    <div id="global-header-container"></div>
+
+    <h1 class="tool-title no-print">
+        <span class="material-symbols-outlined" style="color: var(--accent);">splitscreen</span>
+        WRC造 長期軸力分割ツール (荷重分割シミュレーター)
+    </h1>
+
+    <div class="wrc-af-container">
+        <!-- STEP 1: API設定とモデル読込 -->
+        <div class="wrc-step-card no-print">
+            <div class="wrc-step-header">
+                <span class="wrc-step-badge">STEP 1</span>
+                Google Gemini API設定 & モデル読込
+            </div>
+            <p style="font-size:0.88rem; color:#64748b; margin:0 0 12px 0;">
+                ※入力したAPIキーはブラウザに自動保存され、WRC造シミュレータ等の他ツールとも自動共有されます。
+            </p>
+            <div class="wrc-api-row">
+                <input type="password" id="apiKey" class="wrc-api-input" placeholder="Google AI Studio APIキー (AIzaSy...)">
+                <button id="btn-fetch" class="btn btn-secondary" onclick="fetchModels()">モデルを読み込む</button>
+                <select id="modelSelect" class="wrc-model-select"><option value="">モデル自動取得...</option></select>
+                <span id="modelStatus" style="color: var(--success); font-weight: bold; font-size:0.88rem;"></span>
+            </div>
+        </div>
+
+        <!-- STEP 2: 荷重計算条件マスタ -->
+        <div class="wrc-step-card no-print">
+            <div class="wrc-step-header">
+                <span class="wrc-step-badge">STEP 2</span>
+                荷重計算条件（マスタ）の確認・設定
+            </div>
+            <p style="font-size:0.85rem; color:#64748b; margin:0 0 10px 0; line-height:1.5;">
+                ※項目名に以下の「キーワード」が含まれる場合、単位荷重から積載荷重を引き算して固定荷重を算出します。<br>
+                ※該当しない壁などは、積載=0, 地震=0 として全額固定荷重になります。
+            </p>
+
+            <div class="wrc-table-wrapper">
+                <table id="masterTable" class="wrc-data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 40%;">キーワード (部分一致)</th>
+                            <th style="width: 25%;">積載荷重 (kN/㎡)</th>
+                            <th style="width: 25%;">地震用荷重 (kN/㎡)</th>
+                            <th style="width: 10%;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="masterBody">
+                        <tr>
+                            <td><input type="text" class="wrc-cell-input m_kw" value="屋根一般"></td>
+                            <td><input type="number" class="wrc-cell-input m_ll" value="0.300" step="0.001"></td>
+                            <td><input type="number" class="wrc-cell-input m_eq" value="0.000" step="0.001"></td>
+                            <td><button class="btn btn-secondary" style="padding:3px 8px; font-size:0.75rem;" onclick="this.closest('tr').remove()">削除</button></td>
+                        </tr>
+                        <tr>
+                            <td><input type="text" class="wrc-cell-input m_kw" value="屋根軒先"></td>
+                            <td><input type="number" class="wrc-cell-input m_ll" value="0.300" step="0.001"></td>
+                            <td><input type="number" class="wrc-cell-input m_eq" value="0.000" step="0.001"></td>
+                            <td><button class="btn btn-secondary" style="padding:3px 8px; font-size:0.75rem;" onclick="this.closest('tr').remove()">削除</button></td>
+                        </tr>
+                        <tr>
+                            <td><input type="text" class="wrc-cell-input m_kw" value="床"></td>
+                            <td><input type="number" class="wrc-cell-input m_ll" value="1.300" step="0.001"></td>
+                            <td><input type="number" class="wrc-cell-input m_eq" value="0.600" step="0.001"></td>
+                            <td><button class="btn btn-secondary" style="padding:3px 8px; font-size:0.75rem;" onclick="this.closest('tr').remove()">削除</button></td>
+                        </tr>
+                        <tr>
+                            <td><input type="text" class="wrc-cell-input m_kw" value="バルコニー"></td>
+                            <td><input type="number" class="wrc-cell-input m_ll" value="1.300" step="0.001"></td>
+                            <td><input type="number" class="wrc-cell-input m_eq" value="0.600" step="0.001"></td>
+                            <td><button class="btn btn-secondary" style="padding:3px 8px; font-size:0.75rem;" onclick="this.closest('tr').remove()">削除</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <button class="btn btn-primary" style="padding:6px 14px; font-size:0.85rem;" onclick="addMasterRow()">＋ 条件を追加</button>
+        </div>
+
+        <!-- STEP 3: 画像の読込と生データの蓄積 -->
+        <div class="wrc-step-card no-print">
+            <div class="wrc-step-header">
+                <span class="wrc-step-badge">STEP 3</span>
+                画像の読込と生データの蓄積
+            </div>
+            
+            <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:12px;">
+                <input type="file" id="imageInput" accept="image/png, image/jpeg" style="font-size:0.9rem;">
+                <button id="btn-process" class="btn btn-primary" onclick="processImage()">
+                    🤖 この画像からデータを抽出し「生データ」に追記
+                </button>
+                <span id="statusMessage" style="font-size:0.88rem; font-weight:bold;"></span>
+            </div>
+
+            <div class="wrc-table-wrapper">
+                <table id="rawTable" class="wrc-data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 15%;">符号</th>
+                            <th style="width: 10%;">階</th>
+                            <th style="width: 35%;">項目</th>
+                            <th style="width: 15%;">単位荷重 (kN/㎡)</th>
+                            <th style="width: 15%;">面積 (㎡)</th>
+                            <th style="width: 10%;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rawTableBody">
+                        <!-- 生データが蓄積されます -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="wrc-action-bar">
+                <button class="btn btn-primary" style="padding:6px 14px; font-size:0.85rem;" onclick="addRawRow()">＋ 手動で空行を追加</button>
+                <button class="btn btn-secondary" style="padding:6px 14px; font-size:0.85rem;" onclick="if(confirm('生データを全て消去しますか？')) document.getElementById('rawTableBody').innerHTML='';">🗑️ 全てクリア</button>
+            </div>
+        </div>
+
+        <!-- STEP 4: 集計と出力 -->
+        <div class="wrc-step-card wrc-exec-card no-print">
+            <div style="font-size:1.15rem; font-weight:700; color:var(--primary); margin-bottom:8px;">
+                STEP 4: 最終集計と帳票出力
+            </div>
+            <p style="font-size:0.9rem; color:#475569; margin:0 0 16px 0;">
+                生データの入力・確認が終わったら、下のボタンを押して計算と階・符号別のグループ化を実行してください。
+            </p>
+            <button class="btn btn-primary" style="padding:10px 24px; font-size:1.05rem; font-weight:700;" onclick="runAggregation()">
+                ⚡ 集計して結果表を作成
+            </button>
+        </div>
+
+        <!-- PDF出力用エリア (初期非表示、集計実行後に表示) -->
+        <div id="pdf-wrapper">
+            <div class="pdf-header-controls no-print">
+                <div style="font-weight:700; font-size:1.1rem; color:var(--primary);">
+                    📋 荷重計算内訳書 プレビュー
+                </div>
+                <button class="btn btn-success" style="padding:8px 18px; font-size:0.95rem; font-weight:700;" onclick="downloadPDF()">
+                    📄 この内容で A4 PDF出力 / 印刷
+                </button>
+            </div>
+
+            <div id="pdf-content">
+                <h1 class="pdf-title">荷重計算内訳書</h1>
+
+                <!-- 審査用の計算条件マスタ -->
+                <div class="pdf-section-title">■ 荷重計算条件表 (適用マスタ)</div>
+                <table style="width: 70%; margin-bottom: 24px;">
+                    <thead>
+                        <tr>
+                            <th style="width: 40%;">適用キーワード</th>
+                            <th style="width: 30%;">積載荷重 (kN/㎡)</th>
+                            <th style="width: 30%;">地震用荷重 (kN/㎡)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pdfMasterBody">
+                        <!-- JavaScriptでマスタがコピーされます -->
+                    </tbody>
+                </table>
+
+                <!-- メインの集計結果表 -->
+                <div class="pdf-section-title">■ 階・符号別 荷重集計表</div>
+                <table id="resultTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 12%;">符号</th>
+                            <th style="width: 6%;">階</th>
+                            <th style="width: 26%;">項目</th>
+                            <th style="width: 14%;">単位荷重<br>(kN/㎡)</th>
+                            <th style="width: 14%;">面積<br>(㎡)</th>
+                            <th style="width: 14%;">固定荷重 Po<br>(kN)</th>
+                            <th style="width: 14%;">積載荷重 Po<br>(kN)</th>
+                            <th style="width: 14%;">地震用 Po<br>(kN)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultTableBody">
+                        <!-- JavaScriptで集計結果が生成されます -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="../js/common.js"></script>
+<script src="../js/wrc_axial_force.js"></script>
+</body>
+</html>

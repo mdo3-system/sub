@@ -33,8 +33,10 @@ function closeW6029Modal(event) {
 
 // 初期化
 window.addEventListener('DOMContentLoaded', () => {
-    const savedApiKey = localStorage.getItem('gemini_api_key_wrc');
+    // 共通キーまたは旧個別キーから読み込み
+    const savedApiKey = localStorage.getItem('struct_gemini_api_key') || localStorage.getItem('gemini_api_key_wrc');
     if (savedApiKey) {
+        localStorage.setItem('struct_gemini_api_key', savedApiKey);
         const keyInput = document.getElementById('api_key');
         if (keyInput) {
             keyInput.value = savedApiKey;
@@ -80,7 +82,7 @@ async function fetchModels() {
         if (select.options.length === 0) {
             select.innerHTML = '<option value="">利用可能なモデルなし</option>';
         } else {
-            localStorage.setItem('gemini_api_key_wrc', apiKey);
+            localStorage.setItem('struct_gemini_api_key', apiKey);
             updateAgent(`APIキーの認証に成功しました。<br>左側のエリアに計算書画像をアップロードしてください。`);
         }
     } catch (err) {

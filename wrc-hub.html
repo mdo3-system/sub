@@ -5,17 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WRC造 構造計算補助ツール パッケージ | 構造計算補助ツール</title>
     <script>
-        // 画面が描画される前に認証状態をチェック
-        fetch('/api/check_auth.php')
-            .then(res => res.json())
-            .then(data => {
-                if (!data.authenticated) {
-                    window.location.replace('/login.html');
-                }
-            })
-            .catch(() => {
-                window.location.replace('/login.html');
-            });
+        if (window.location.protocol !== 'file:') {
+            fetch('/api/check_auth.php')
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (data && data.authenticated === false) {
+                        window.location.replace('/login.html');
+                    }
+                })
+                .catch(err => console.warn("Auth check failed:", err));
+        }
     </script>
     <meta name="description" content="壁式鉄筋コンクリート(WRC)造の構造計算・設計実務をサポートする専用ツールパッケージ。HOUSE-WL完全互換の梁一括検定シミュレータや長期軸力分割ツールを提供します。">
     
@@ -132,6 +131,22 @@
             <p>壁式鉄筋コンクリート造（WRC造）の設計実務・応力検定を強力にサポート</p>
         </div>
 
+        <!-- WRC共通Gemini APIキー管理バー -->
+        <div class="card-panel" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:30px; background:#f8fafc; border:1px solid #bfdbfe; padding:14px 20px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span class="material-symbols-outlined" style="color:var(--accent); font-size:24px;">key</span>
+                <div>
+                    <div style="font-weight:700; font-size:0.95rem; color:var(--primary);">WRC共通 Google Gemini APIキー</div>
+                    <div style="font-size:0.8rem; color:#64748b;">ここで保存したAPIキーは、梁検定シミュレータ・長期軸力分割ツールの両方で自動的に共有・適用されます。</div>
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <input type="password" id="hub_api_key" placeholder="APIキーを入力 (AIzaSy...)" style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.88rem; width:220px;">
+                <button class="btn btn-primary" onclick="saveHubApiKey()" style="padding:6px 14px; font-size:0.85rem;">保存</button>
+                <span id="hub_key_msg" style="font-size:0.85rem; color:var(--success); font-weight:700;"></span>
+            </div>
+        </div>
+
         <main>
             <section class="hub-section">
                 <div class="section-header">
@@ -153,23 +168,46 @@
                         </div>
                     </a>
 
-                    <!-- 2. 長期軸力分割ツール (Coming Soon) -->
-                    <div class="tool-card card-disabled">
-                        <span class="material-symbols-outlined" style="color: #64748b; font-size: 48px;">splitscreen</span>
+                    <!-- 2. 長期軸力分割ツール -->
+                    <a href="tools/wrc_axial_force.html" class="tool-card" style="border: 2px solid #0284c7; background: linear-gradient(to bottom, #ffffff, #f0f9ff);">
+                        <span class="material-symbols-outlined" style="color: #0284c7; font-size: 48px;">splitscreen</span>
                         <div style="margin-bottom: 8px;">
-                            <span class="badge-soon">準備中・次回公開</span>
+                            <span class="badge-active" style="background:#0284c7;">AI画像解析・マスタ連動</span>
                         </div>
-                        <h3 style="color: #475569;">長期軸力分割ツール</h3>
-                        <p>壁式RC造における壁梁・壁柱の長期軸力分担計算および分割シミュレーションツール。階別の伝達比率や連層耐力壁への軸力集計をスムーズに支援します。</p>
-                        <div class="arrow" style="color: #94a3b8; font-weight: 600;">
-                            近日公開予定 <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">schedule</span>
+                        <h3 style="color: #0f172a;">長期軸力分割ツール (荷重分割)</h3>
+                        <p>計算書の荷重表画像からGemini AIで符号・階・項目・単位荷重・面積を自動抽出し、マスタ条件と連動して固定・積載・地震用荷重を分離。階小計・符号別最下階基礎荷重合計を一括集計し、A4帳票を出力します。</p>
+                        <div class="arrow" style="color: #0284c7; font-weight: bold;">
+                            ツールを開く <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">arrow_forward</span>
                         </div>
-                    </div>
+                    </a>
                 </div>
             </section>
         </main>
     </div>
 
     <script src="js/common.js"></script>
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            const saved = localStorage.getItem('struct_gemini_api_key') || localStorage.getItem('gemini_api_key_wrc');
+            if (saved) {
+                document.getElementById('hub_api_key').value = saved;
+                document.getElementById('hub_key_msg').innerText = '✓ 設定済';
+            }
+        });
+
+        function saveHubApiKey() {
+            const key = document.getElementById('hub_api_key').value.trim();
+            if (!key) {
+                alert('APIキーを入力してください。');
+                return;
+            }
+            localStorage.setItem('struct_gemini_api_key', key);
+            document.getElementById('hub_key_msg').innerText = '✓ 保存しました';
+            setTimeout(() => {
+                const msg = document.getElementById('hub_key_msg');
+                if (msg) msg.innerText = '✓ 設定済';
+            }, 2500);
+        }
+    </script>
 </body>
 </html>
