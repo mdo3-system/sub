@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WRC造 構造計算補助ツール パッケージ | 構造計算補助ツール</title>
+    <script>
+        // 画面が描画される前に認証状態をチェック
+        fetch('/api/check_auth.php')
+            .then(res => res.json())
+            .then(data => {
+                if (!data.authenticated) {
+                    window.location.replace('/login.html');
+                }
+            })
+            .catch(() => {
+                window.location.replace('/login.html');
+            });
+    </script>
+    <meta name="description" content="壁式鉄筋コンクリート(WRC)造の構造計算・設計実務をサポートする専用ツールパッケージ。HOUSE-WL完全互換の梁一括検定シミュレータや長期軸力分割ツールを提供します。">
+    
+    <!-- Google Material Symbols -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/index.css">
+    <style>
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-sub, #64748b);
+            text-decoration: none;
+            font-weight: 700;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+        }
+        .back-link:hover {
+            color: var(--accent);
+            transform: translateX(-5px);
+        }
+        
+        section.hub-section {
+            margin-bottom: 50px;
+        }
+        
+        .section-header {
+            margin-bottom: 25px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--secondary, #3b82f6);
+            display: flex;
+            align-items: baseline;
+            gap: 15px;
+        }
+        
+        .section-header h2 {
+            font-size: 1.6rem;
+            color: var(--primary, #0f172a);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .section-header p {
+            color: var(--text-sub, #64748b);
+            font-size: 0.95rem;
+            margin: 0;
+        }
+
+        .wrc-hero {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+            color: white;
+            padding: 48px 24px;
+            text-align: center;
+            border-radius: var(--radius-md, 10px);
+            margin-bottom: 35px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+        .wrc-hero h1 {
+            color: white;
+            font-size: 2rem;
+            margin: 0 0 10px 0;
+            border: none;
+            justify-content: center;
+        }
+        .wrc-hero p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            margin: 0;
+        }
+
+        .badge-active {
+            background: #2563eb;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+
+        .badge-soon {
+            background: #64748b;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+
+        .card-disabled {
+            opacity: 0.75;
+            cursor: default;
+            background: #f8fafc !important;
+            border-style: dashed !important;
+        }
+        .card-disabled:hover {
+            transform: none !important;
+            box-shadow: var(--shadow-sm) !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="tool-container">
+        <div id="global-header-container"></div>
+
+        <div class="wrc-hero">
+            <h1>🏢 WRC造 構造計算補助ツール パッケージ</h1>
+            <p>壁式鉄筋コンクリート造（WRC造）の設計実務・応力検定を強力にサポート</p>
+        </div>
+
+        <main>
+            <section class="hub-section">
+                <div class="section-header">
+                    <h2>WRC造 計算・検定ツール一覧</h2>
+                    <p>HOUSE-WL等の計算書出力と連携し、実務における断面算定・軸力分担を効率化します。</p>
+                </div>
+
+                <div class="tool-grid">
+                    <!-- 1. 梁一括検定シミュレータ -->
+                    <a href="tools/wrc_simulator.html" class="tool-card" style="border: 2px solid #2563eb; background: linear-gradient(to bottom, #ffffff, #f0f7ff);">
+                        <span class="material-symbols-outlined" style="color: #2563eb; font-size: 48px;">architecture</span>
+                        <div style="margin-bottom: 8px;">
+                            <span class="badge-active">AI画像解析・HOUSE-WL完全互換</span>
+                        </div>
+                        <h3 style="color: #0f172a;">WRC造 梁一括検定シミュレータ</h3>
+                        <p>計算書画像をアップロードするだけで、AIがNG箇所・応力・寸法を自動抽出。上端・下端・あばら筋を調整し、長期・短期の全断面を一括検定。A4縦PDF報告書の出力に対応。</p>
+                        <div class="arrow" style="color: #2563eb; font-weight: bold;">
+                            シミュレータを開く <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">arrow_forward</span>
+                        </div>
+                    </a>
+
+                    <!-- 2. 長期軸力分割ツール (Coming Soon) -->
+                    <div class="tool-card card-disabled">
+                        <span class="material-symbols-outlined" style="color: #64748b; font-size: 48px;">splitscreen</span>
+                        <div style="margin-bottom: 8px;">
+                            <span class="badge-soon">準備中・次回公開</span>
+                        </div>
+                        <h3 style="color: #475569;">長期軸力分割ツール</h3>
+                        <p>壁式RC造における壁梁・壁柱の長期軸力分担計算および分割シミュレーションツール。階別の伝達比率や連層耐力壁への軸力集計をスムーズに支援します。</p>
+                        <div class="arrow" style="color: #94a3b8; font-weight: 600;">
+                            近日公開予定 <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">schedule</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="js/common.js"></script>
+</body>
+</html>

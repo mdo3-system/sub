@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>アーキトレンド 木造構造計算補助ツール | 実務者のための計算ツール群</title>
+    <title>木造構造計算補助ツール | 実務者のための計算ツール群</title>
 	<script>
         // 画面が描画される前に認証状態をチェック
         fetch('/api/check_auth.php')
@@ -19,7 +19,7 @@
                 window.location.replace('/login.html');
             });
     </script>
-    <meta name="description" content="木造建築の構造設計・計算を強力にサポートする補助ツール群。人通口、柱の曲げ、めり込み、屋根・床構面の詳細計算など、実務に即した計算ツールを提供します。">
+    <meta name="description" content="木造・WRC造建築の構造設計・計算を強力にサポートする補助ツール群。人通口、柱の曲げ、めり込み、屋根・床構面の詳細計算、WRC造梁一括検定など、実務に即した計算ツールを提供します。">
     
     <!-- Google Material Symbols -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
@@ -63,16 +63,28 @@
 <body>
 
     <header>
-        <div class="logo">Architrend Tools</div>
+        <div class="logo">Structure Tools</div>
     </header>
 
     <section class="hero">
-        <h1>アーキトレンド 木造構造計算補助ツール</h1>
+        <h1>木造構造計算補助ツール</h1>
         <p>実務者のための計算ツール群</p>
     </section>
 
     <main>
         <div class="tool-grid">
+            <!-- WRC造 構造計算補助ツール パッケージ -->
+            <a href="wrc-hub.html" class="tool-card package-card" style="border-color: #2563eb !important; background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%) !important;">
+                <span class="material-symbols-outlined" style="color: #2563eb;">domain</span>
+                <div class="content">
+                    <span class="badge" style="background: #2563eb;">WRC造・新設</span>
+                    <h3>WRC造 構造計算補助ツール パッケージ</h3>
+                    <p style="font-size: 1.1rem; color: var(--primary); font-weight: 600; margin-bottom: 8px;">壁式鉄筋コンクリート造の実務設計・検定を効率化</p>
+                    <p>HOUSE-WL完全互換の一括梁検定シミュレータ、長期軸力分割ツールなど、WRC造特有の構造検討をサポートします。</p>
+                    <div class="arrow" style="color: #2563eb;">パッケージを開く <span class="material-symbols-outlined" style="font-size: 18px; margin:0;">arrow_forward</span></div>
+                </div>
+            </a>
+
             <!-- 面材張り詳細計算法 パッケージ -->
             <a href="shosai-hub.html" class="tool-card package-card">
                 <span class="material-symbols-outlined" style="color: var(--primary-light);">folder_special</span>

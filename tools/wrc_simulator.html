@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WRC造 梁一括検定シミュレータ (HOUSE-WL完全互換版) | 構造計算補助ツール</title>
+    <script>
+        if (window.location.protocol !== 'file:') {
+            fetch('/api/check_auth.php')
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (data && data.authenticated === false) {
+                        window.location.replace('/login.html');
+                    }
+                })
+                .catch(err => console.warn("Auth check failed:", err));
+        }
+    </script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/wrc_simulator.css">
+</head>
+<body>
+
+<div class="tool-container">
+    <!-- 共通ヘッダー（ポータル・ハブ戻りナビ、工事名称・計算日・設計者入力） -->
+    <div id="global-header-container"></div>
+
+    <!-- ツール操作バー -->
+    <div class="wrc-toolbar no-print">
+        <div class="wrc-toolbar-title">
+            <span class="material-symbols-outlined" style="color: var(--accent);">architecture</span>
+            WRC造 梁一括検定シミュレータ (HOUSE-WL完全互換版)
+        </div>
+        <div class="wrc-toolbar-actions">
+            <input type="password" id="api_key" class="wrc-input-key" placeholder="Gemini APIキー" onchange="fetchModels()">
+            <button class="btn btn-secondary" style="padding:6px 12px; font-size:0.85rem;" onclick="fetchModels()">🔄 取得</button>
+            <select id="api_model" class="wrc-select-model"><option value="">モデル自動取得...</option></select>
+            <button class="btn btn-success" style="display:none; padding:6px 14px; font-size:0.85rem;" onclick="exportPDF()" id="btn_export">📄 A4タテ PDF出力</button>
+        </div>
+    </div>
+
+    <div class="wrc-app-container no-print">
+        <!-- 左パネル：画像アップロード & スキャンプレビュー -->
+        <div class="wrc-left-panel">
+            <div class="wrc-upload-zone" id="drop_zone" onclick="document.getElementById('file_input').click()">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:10px;">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <p style="font-weight:700; color:#475569; margin:0;">計算書画像をアップロード</p>
+                <p style="font-size:0.85rem; color:#94a3b8; margin-top:5px;">AIが自動でNG箇所と応力・寸法を読み取ります</p>
+                <input type="file" id="file_input" accept="image/*" style="display:none;">
+            </div>
+
+            <div class="wrc-loader-container" id="loader_container">
+                <div class="wrc-loader"></div>
+                <div style="font-weight:700; color:var(--primary); font-size:1.05rem;">AIが計算書をスキャン・解析中...</div>
+                <div style="color:#64748b; font-size:0.88rem; margin-top:5px;">長期・短期すべての応力(ML, MS, QL, QS)を抽出しています。</div>
+            </div>
+
+            <div class="wrc-image-viewer" id="image_viewer">
+                <img id="scanned_image" src="" alt="計算書プレビュー">
+            </div>
+        </div>
+
+        <!-- 右パネル：ナビゲーション・警告・配筋入力・3列ダッシュボード -->
+        <div class="wrc-right-panel">
+            <!-- 梁ナビゲーションバー -->
+            <div class="wrc-nav-bar" id="nav_bar" style="display:none;">
+                <div class="wrc-nav-controls">
+                    <button class="btn btn-secondary" style="padding:6px 14px; font-size:0.85rem;" id="btn_prev" onclick="changeError(-1)">← 前の梁へ</button>
+                    <div class="wrc-nav-title" id="nav_title">解析中...</div>
+                    <button class="btn btn-secondary" style="padding:6px 14px; font-size:0.85rem;" id="btn_next" onclick="changeError(1)">次の梁へ →</button>
+                </div>
+                <div class="wrc-progress-dots" id="progress_dots"></div>
+            </div>
+
+            <!-- ★ 構造設計の罠 警告パネル ★ -->
+            <div class="wrc-trap-alert">
+                <div class="wrc-trap-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                    【重要】配筋を増やす前に！構造初心者が陥る「4つの罠」
+                </div>
+                <div class="wrc-trap-desc">
+                    <ol>
+                        <li><b>断面サイズの変更と応力集中：</b> 安易に梁成(D)や梁幅(b)を大きくすると「硬くなった部材に余計に力が集まる」ため、応力が跳ね上がり再びNGになる「いたちごっこ」が発生します。まずは初期断面のまま鉄筋量の調整でクリアできるか検討してください。</li>
+                        <li><b>短スパン壁梁への異常な応力：</b> 長さが短い梁に異常な応力が発生している場合、無理に鉄筋で耐えるのではなく、HOUSE-WL側で<b>「スリット」</b>を設けて応力を逃がす（縁を切る）設計変更が効果的です。</li>
+                        <li><b>自動配筋の破綻と荷重ミス：</b> 上下端の鉄筋量が極端にアンバランスな場合や、応力値が非現実的な場合は、荷重設定のミスや自動配筋の破綻が疑われます。<b>応力自体を下げる</b>アプローチを最優先にしてください。</li>
+                        <li><b>壁柱の曲げ補強筋不足（W6029等）：</b> エラーが「梁」ではなく「壁柱」で出ている場合、本シミュレータ（梁検定）の対象外です。<button onclick="openW6029Modal()" class="btn btn-primary" style="margin-left:8px; padding:2px 8px; font-size:0.78rem;">📘 W6029の詳細と対処法</button></li>
+                    </ol>
+                    <span style="color: #b45309; font-weight: 700;">💡 鉄則：</span>「耐力を上げる」だけが正解ではありません。「応力を逃がす・下げる」設計判断を併用してください。
+                </div>
+            </div>
+
+            <!-- AIエージェント対話メッセージ -->
+            <div class="wrc-agent-container">
+                <div class="wrc-agent-msg">
+                    <div class="wrc-agent-icon">AI</div>
+                    <div class="wrc-agent-text" id="agent_dialog">
+                        1. 右上の入力欄に「Gemini APIキー」を貼り付けてください。<br>
+                        2. <b>「🔄 取得」ボタン</b>を押してモデルを表示させます。<br>
+                        3. 画像をアップロードしてください。<br>
+                        ※AIJ規準およびHOUSE-WL準拠の「短期割増(×1.5)」を適用した厳密な耐力計算を行います。
+                    </div>
+                </div>
+            </div>
+
+            <!-- シミュレーション画面 (ワークスペース) -->
+            <div id="workspace" style="display:none;">
+                <!-- 共通コンクリート設定 -->
+                <div class="wrc-card" style="background:#f8fafc; margin-bottom: 16px;">
+                    <div style="font-weight:700; color:var(--primary); margin-bottom:10px;">📐 共通コンクリート設定</div>
+                    <div class="wrc-setup-row">
+                        <div class="wrc-setup-item">
+                            <label>部位 =</label>
+                            <select id="val_type" onchange="updateCalc()" style="width:120px;">
+                                <option value="G" selected>一般梁 (G)</option>
+                                <option value="FG">基礎梁 (FG)</option>
+                            </select>
+                        </div>
+                        <div class="wrc-setup-item">
+                            <label>梁幅 b =</label>
+                            <input type="number" id="val_b" onchange="updateCalc()" style="width:75px;"> mm
+                        </div>
+                        <div class="wrc-setup-item">
+                            <label>梁成 D =</label>
+                            <input type="number" id="val_D" onchange="updateCalc()" style="width:75px;"> mm
+                        </div>
+                        <div class="wrc-setup-item">
+                            <label>強度 Fc =</label>
+                            <select id="val_Fc" onchange="updateCalc()" style="width:70px;">
+                                <option value="21" selected>21</option>
+                                <option value="24">24</option>
+                                <option value="27">27</option>
+                                <option value="30">30</option>
+                            </select> N/mm²
+                        </div>
+                    </div>
+                    <div style="font-size:0.8rem; color:#64748b; margin-top:8px;">
+                        ※基礎梁(FG)は下端かぶり厚さを70mmで計算します。主筋材質は径に応じて自動判定（D16以上=SD345）されます。
+                    </div>
+                </div>
+
+                <!-- 上端筋 & 下端筋 -->
+                <div class="wrc-grid-2" style="margin-bottom: 16px;">
+                    <!-- 上端筋 -->
+                    <div class="wrc-card" style="border-top: 4px solid var(--accent);">
+                        <div class="wrc-card-header">🔵 上端筋 (通し配筋)</div>
+                        <div class="wrc-rebar-row">
+                            <label>1段目</label>
+                            <input type="number" id="top1_qty" min="0" max="8" onchange="updateCalc()"> 本
+                            <select id="top1_dia" onchange="updateCalc()">
+                                <option value="13">D13</option><option value="16">D16</option><option value="19">D19</option><option value="22">D22</option><option value="25">D25</option>
+                            </select>
+                        </div>
+                        <div class="wrc-rebar-row">
+                            <label>2段目</label>
+                            <input type="number" id="top2_qty" min="0" max="8" onchange="updateCalc()"> 本
+                            <select id="top2_dia" onchange="updateCalc()">
+                                <option value="13">D13</option><option value="16">D16</option><option value="19">D19</option><option value="22">D22</option><option value="25">D25</option>
+                            </select>
+                        </div>
+                        <div id="top_clearance" class="wrc-clearance-box"></div>
+                    </div>
+
+                    <!-- 下端筋 -->
+                    <div class="wrc-card" style="border-top: 4px solid var(--success);">
+                        <div class="wrc-card-header">🟢 下端筋 (通し配筋)</div>
+                        <div class="wrc-rebar-row">
+                            <label>1段目</label>
+                            <input type="number" id="bot1_qty" min="0" max="8" onchange="updateCalc()"> 本
+                            <select id="bot1_dia" onchange="updateCalc()">
+                                <option value="13">D13</option><option value="16">D16</option><option value="19">D19</option><option value="22">D22</option><option value="25">D25</option>
+                            </select>
+                        </div>
+                        <div class="wrc-rebar-row">
+                            <label>2段目</label>
+                            <input type="number" id="bot2_qty" min="0" max="8" onchange="updateCalc()"> 本
+                            <select id="bot2_dia" onchange="updateCalc()">
+                                <option value="13">D13</option><option value="16">D16</option><option value="19">D19</option><option value="22">D22</option><option value="25">D25</option>
+                            </select>
+                        </div>
+                        <div id="bot_clearance" class="wrc-clearance-box"></div>
+                    </div>
+                </div>
+
+                <!-- あばら筋 -->
+                <div class="wrc-card" style="margin-bottom: 16px; display:flex; gap:12px; align-items:center; background:#fffbeb; border:1px solid #fde68a;">
+                    <div style="font-weight:700; color:#b45309; font-size:1rem;">🟠 あばら筋</div>
+                    <select id="stirrup_dia" style="padding:6px 10px; border-radius:4px; border:1px solid #cbd5e1;" onchange="updateCalc()">
+                        <option value="10">D10</option><option value="13">D13</option>
+                    </select> @ 
+                    <select id="stirrup_pitch" style="padding:6px 10px; border-radius:4px; border:1px solid #cbd5e1;" onchange="updateCalc()">
+                        <option value="250">250</option><option value="200">200</option><option value="150">150</option><option value="100">100</option>
+                    </select> mm ピッチ
+                </div>
+
+                <!-- 一括検定ダッシュボード -->
+                <div class="wrc-card">
+                    <div class="wrc-card-header">📊 一括検定ダッシュボード（長期・短期対応）</div>
+
+                    <div class="wrc-dash-grid-3">
+                        <!-- 左端 -->
+                        <div class="wrc-sub-card">
+                            <div class="wrc-sub-header">左端</div>
+                            <div class="wrc-result-group" id="grp_top_left">
+                                <div class="wrc-flex-between"><b>🔵 上端曲げ</b><span id="badge_pt_top_left"></span></div>
+                                <div class="wrc-label-row"><span>長期(ML)</span><span id="badge_mal_top_left"></span></div>
+                                <div class="wrc-bar-wrap"><div id="bar_mal_top_left" class="wrc-bar-fill"></div><div id="target_mal_top_left" class="wrc-bar-target"></div></div>
+                                <div class="wrc-meta-text" id="meta_mal_top_left"></div>
+                                <div class="wrc-label-row"><span>短期(MS)</span><span id="badge_mas_top_left"></span></div>
+                                <div class="wrc-bar-wrap"><div id="bar_mas_top_left" class="wrc-bar-fill"></div><div id="target_mas_top_left" class="wrc-bar-target"></div></div>
+                                <div class="wrc-meta-text" id="meta_mas_top_left"></div>
+                                <div class="wrc-limit-alert" id="limit_top_left">※圧縮限界</div>
+                            </div>
+                            <div class="wrc-result-group" id="grp_bot_left">
+                                <div class="wrc-flex-between"><b>🟢 下端曲げ</b><span id="badge_pt_bot_left"></span></div>
+                                <div class="wrc-label-row"><span>長期(ML)</span><span id="badge_mal_bot_left"></span></div>
+                                <div class="wrc-bar-wrap"><div id="bar_mal_bot_left" class="wrc-bar-fill"></div><div id="target_mal_bot_left" class="wrc-bar-target"></div></div>
+                                <div class="wrc-meta-text" id="meta_mal_bot_left"></div>
+                                <div class="wrc-label-row"><span>短期(MS)</span><span id="badge_mas_bot_left"></span></div>
+                                <div class="wrc-bar-wrap"><div id="bar_mas_bot_left" class="wrc-bar-fill"></div><div id="target_mas_bot_left" class="wrc-bar-target"></div></div>
+                                <div class="wrc-meta-text" id="meta_mas_bot_left"></div>
+                                <div class="wrc-limit-alert" id="limit_bot_left">※圧縮限界</div>
+                            </div>
+                            <div class="wrc-result-group" id="grp_shear_left">
+                                <div class="wrc-flex-between"><b>🟠 せん断</b><div><span id="badge_pw_left"></span><span id="badge_pitch_left"></span></div></div>
+                                <div class="wrc-label-row"><span>長期(QL)</span><span id="badge_qal_left"></span></div>
+                                <div class="wrc-bar-wrap"><div id="bar_qal_left" class="wrc-bar-fill"></div><div id="target_qal_left" class="wrc-bar-target"></div></div>
+                                <div class="wrc-meta-text" id="meta_qal_left"></div>
+                                <div class="wrc-label-row"><span>短期(QS)</span><span id="badge_qas_left"></span></div>
+                                <div class="wrc-bar-wrap"><div id="bar_qas_left" class="wrc-bar-fill"></div><div id="target_qas_left" class="wrc-bar-target"></div></div>
+                                <div class="wrc-meta-text" id="meta_qas_left"></div>
+                            </div>
+                        </div>
+
+                        <!-- 中央 -->
+                        <div class="wrc-sub-card">
+                            <div class="wrc-sub-header">中央</div>
+                            <div class="wrc-result-group" id="grp_top_center">
+                                <div class="wrc-flex-between"><b>🔵 上端曲げ</b><span id="badge_pt_top_center"></span></div>
+                                <div class="wrc-label-row"><span>長期(ML)</span><span id="badge_mal_top_center"></span></div>
+                                <div class="wrc-bar-wrap"><div id="bar_mal_top_center" class="wrc-bar-fill"></div><div id="target_mal_top_center" class="wrc-bar-target"></div></div>
+                                <div class="wrc-meta-text" id="meta_mal_top_center"></div>
+                                <div class="wrc-label-row"><span>短期(MS)</span><span id="badge_mas_top_center"></span></div>
+                                <div class="wrc-bar-wrap"><div id="bar_mas_top_center" class="wrc-bar-fill"></div><div id="target_mas_top_center" class="wrc-bar-target"></div></div>
+                                <div class="wrc-meta-text" id="meta_mas_top_center"></div>
+                                <div class="wrc-limit-alert" id="limit_top_center">※圧縮限界</div>
+                            </div>
+                            <div class="wrc-result-group" id="grp_bot_center">
+                                <div class="wrc-flex-between"><b>🟢 下端曲げ</b><span id="badge_pt_bot_center"></span></div>
+                                <div class="wrc-label-row"><span>長期(ML)</span><span id="badge_mal_bot_center"></span></div>
+                                <div class="wrc-bar-wrap"><div id="bar_mal_bot_center" class="wrc-bar-fill"></div><div id="target_mal_bot_center" class="wrc-bar-target"></div></div>
+                                <div class="wrc-meta-text" id="meta_mal_bot_center"></div>
+                                <div class="wrc-label-row"><span>短期(MS)</span><span id="badge_mas_bot_center"></span></div>
+                                <div class="wrc-bar-wrap"><div id="bar_mas_bot_center" class="wrc-bar-fill"></div><div id="target_mas_bot_center" class="wrc-bar-target"></div></div>
+                                <div class="wrc-meta-text" id="meta_mas_bot_center"></div>
+                                <div class="wrc-limit-alert" id="limit_bot_center">※圧縮限界</div>
+                            </div>
+                            <div class="wrc-result-group" id="grp_shear_center">
+                                <div class="wrc-flex-between"><b>🟠 せん断</b><div><span id="badge_pw_center"></span><span id="badge_pitch_center"></span></div></div>
+                                <div class="wrc-label-row"><span>長期(QL)</span><span id="badge_qal_center"></span></div>
+                                <div class="wrc-bar-wrap"><div id="bar_qal_center" class="wrc-bar-fill"></div><div id="target_qal_center" class="wrc-bar-target"></div></div>
+                                <div class="wrc-meta-text" id="meta_qal_center"></div>
+                                <div class="wrc-label-row"><span>短期(QS)</span><span id="badge_qas_center"></span></div>
+                                <div class="wrc-bar-wrap"><div id="bar_qas_center" class="wrc-bar-fill"></div><div id="target_qas_center" class="wrc-bar-target"></div></div>
+                                <div class="wrc-meta-text" id="meta_qas_center"></div>
+                            </div>
+                        </div>
+
+                        <!-- 右端 -->
+                        <div class="wrc-sub-card">
+                            <div class="wrc-sub-header">右端</div>
+                            <div class="wrc-result-group" id="grp_top_right">
+                                <div class="wrc-flex-between"><b>🔵 上端曲げ</b><span id="badge_pt_top_right"></span></div>
+                                <div class="wrc-label-row"><span>長期(ML)</span><span id="badge_mal_top_right"></span></div>
+                                <div class="wrc-bar-wrap"><div id="bar_mal_top_right" class="wrc-bar-fill"></div><div id="target_mal_top_right" class="wrc-bar-target"></div></div>
+                                <div class="wrc-meta-text" id="meta_mal_top_right"></div>
+                                <div class="wrc-label-row"><span>短期(MS)</span><span id="badge_mas_top_right"></span></div>
+                                <div class="wrc-bar-wrap"><div id="bar_mas_top_right" class="wrc-bar-fill"></div><div id="target_mas_top_right" class="wrc-bar-target"></div></div>
+                                <div class="wrc-meta-text" id="meta_mas_top_right"></div>
+                                <div class="wrc-limit-alert" id="limit_top_right">※圧縮限界</div>
+                            </div>
+                            <div class="wrc-result-group" id="grp_bot_right">
+                                <div class="wrc-flex-between"><b>🟢 下端曲げ</b><span id="badge_pt_bot_right"></span></div>
+                                <div class="wrc-label-row"><span>長期(ML)</span><span id="badge_mal_bot_right"></span></div>
+                                <div class="wrc-bar-wrap"><div id="bar_mal_bot_right" class="wrc-bar-fill"></div><div id="target_mal_bot_right" class="wrc-bar-target"></div></div>
+                                <div class="wrc-meta-text" id="meta_mal_bot_right"></div>
+                                <div class="wrc-label-row"><span>短期(MS)</span><span id="badge_mas_bot_right"></span></div>
+                                <div class="wrc-bar-wrap"><div id="bar_mas_bot_right" class="wrc-bar-fill"></div><div id="target_mas_bot_right" class="wrc-bar-target"></div></div>
+                                <div class="wrc-meta-text" id="meta_mas_bot_right"></div>
+                                <div class="wrc-limit-alert" id="limit_bot_right">※圧縮限界</div>
+                            </div>
+                            <div class="wrc-result-group" id="grp_shear_right">
+                                <div class="wrc-flex-between"><b>🟠 せん断</b><div><span id="badge_pw_right"></span><span id="badge_pitch_right"></span></div></div>
+                                <div class="wrc-label-row"><span>長期(QL)</span><span id="badge_qal_right"></span></div>
+                                <div class="wrc-bar-wrap"><div id="bar_qal_right" class="wrc-bar-fill"></div><div id="target_qal_right" class="wrc-bar-target"></div></div>
+                                <div class="wrc-meta-text" id="meta_qal_right"></div>
+                                <div class="wrc-label-row"><span>短期(QS)</span><span id="badge_qas_right"></span></div>
+                                <div class="wrc-bar-wrap"><div id="bar_qas_right" class="wrc-bar-fill"></div><div id="target_qas_right" class="wrc-bar-target"></div></div>
+                                <div class="wrc-meta-text" id="meta_qas_right"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 印刷用エリア (PDF用) -->
+    <div id="print_area">
+        <h2 style="text-align:center; font-size:1.3rem; margin-bottom:12px; border-bottom:2px solid #000; padding-bottom:8px;">
+            WRC造 構造計算 一括配筋修正報告書
+        </h2>
+        <div style="text-align:right; font-size:9pt; margin-bottom:10px;" id="print_date">作成日: ----/--/--</div>
+        <table class="wrc-print-table">
+            <thead>
+                <tr>
+                    <th style="width: 25%;">梁 符号・位置</th>
+                    <th style="width: 15%;">共通断面 (b×D)</th>
+                    <th style="width: 20%;">上端筋 (通し)</th>
+                    <th style="width: 20%;">下端筋 (通し)</th>
+                    <th style="width: 12%;">あばら筋</th>
+                    <th style="width: 8%;">総合判定</th>
+                </tr>
+            </thead>
+            <tbody id="print_tbody"></tbody>
+        </table>
+        <div class="wrc-print-watermark">AI構造設計アシスタント - WRC造 出力システム</div>
+    </div>
+
+    <!-- ★ W6029解説モーダル ★ -->
+    <div id="w6029_modal" class="wrc-modal-overlay" onclick="closeW6029Modal(event)">
+        <div class="wrc-modal-content" onclick="event.stopPropagation()">
+            <button class="wrc-modal-close" onclick="closeW6029Modal()">×</button>
+            <div class="wrc-modal-body">
+                <h2>警告W6029に対する構造設計上の対処法（判断に基づく許容）</h2>
+                <p>警告W6029に直面した際、設計者はプログラムの出力結果に盲目的に従うのではなく、構造計画全体の意図と各部材の応力状態を照らし合わせ、適切な対応を決定しなければならない。株式会社構造システムの公式サポート情報によれば、この警告に対する対処法は大きく「計算上問題ないと判断して現状を維持する方法」と、「指針の推奨値を満足するように配筋を変更する方法」の2つに大別される。本節ではまず、前者の「判断に基づく許容」について詳述する。</p>
+
+                <h3>計算結果に基づく判断基準</h3>
+                <p>出力されているメッセージはあくまで「推奨値」に対する警告であるため、これが直ちに法的な違反や構造上の欠陥を意味するわけではない。したがって、構造計算上（応力度検定比）安全であることが確認されており、かつ設計者が構造工学的な見地から安全上問題がないと明確に判断できるのであれば、指針の数値に合わせるために無理に配筋を変更・増量する必要はない。</p>
+                <p style="font-weight: 700; margin-top:10px;">この判断が正当化されるケースとしては、以下のような状況が考えられる。</p>
+                <ul>
+                    <li><b>軸力が支配的な部位：</b> 常時および地震時においても常に高い圧縮軸力が作用しており、引張応力が全く、あるいはほとんど発生しない壁柱。このような部位では、コンクリートの圧縮強度のみで十分に外力に抵抗できるため、過大な曲げ補強筋を配置する力学的意義が薄い。</li>
+                    <li><b>上層階の非耐力壁に近い部位：</b> 建物全体の剛性には寄与しているものの、負担するせん断力や曲げモーメントが極めて小さい最上階の壁など。</li>
+                    <li><b>施工性の観点からの制約：</b> 推奨値を満たすために太径の鉄筋や過密な配筋を採用した場合、かえってコンクリートの充填不良（ジャンカの発生）を招き、構造耐力や耐久性を著しく低下させる懸念がある場合。</li>
+                </ul>
+
+                <h3>確認申請における説明責任とシステム上の処理</h3>
+                <p>上記のような工学的判断を下し、あえて推奨値を下回る配筋のまま設計を進める場合、確認申請機関やピアチェックを行う第三者に対して、その正当性を論理的に説明する責任（アカウンタビリティ）が生じる。</p>
+                <p>HOUSE-WLのシステム上では、このような場合に計算書内に根拠を残すための機能が用意されている。具体的には、プログラムの「通信欄」にコメントを記述して対応することが推奨されている。通信欄に、「W6029が出力されているが、当該壁柱は軸力が支配的であり、引張応力が生じないため、算定計算結果に基づく配筋とした。構造耐力上および安全上問題ないと判断する」といった技術的見解を明記することで、審査機関に対する疑義を未然に防ぎ、構造計算書としての透明性と一貫性を担保することができる。</p>
+
+                <h2 style="margin-top: 26px;">推奨値を満足させるためのHOUSE-WL操作手順と機能活用</h2>
+                <p>原則として、特段の力学的理由がない限りは、日本建築センターの指針に準拠し、推奨曲げ補強筋量を満たすように配筋を変更してW6029のメッセージを解消することが、一般的な実務設計におけるセオリーである。指針の表の鉄筋量を満足させたい場合は、警告が発生している対象が「コーナー部や壁端部」なのか、あるいは「開口端」なのかによって、HOUSE-WL上での設定箇所が異なる。</p>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>警告が発生している部位</th>
+                            <th>設定を変更すべき項目名</th>
+                            <th>HOUSE-WL上の操作対象ダイアログ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>コーナー部・壁端部</td>
+                            <td>壁端部(コーナー)筋の配置</td>
+                            <td>「壁端部(コーナー)筋の配置」ダイアログ</td>
+                        </tr>
+                        <tr>
+                            <td>開口端（窓・ドア周辺）</td>
+                            <td>開口補強筋</td>
+                            <td>「壁開口形状の配置」ダイアログ内の「開口部補強筋番号」</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>コーナー部および壁端部における配筋設定</h3>
+                <p>建物の外周部や、耐力壁が交差する端部においてW6029が発生している場合、対象となる配筋は「壁端部（コーナー）筋」である。この警告を解消するためには、HOUSE-WLのメニューから「壁端部(コーナー)筋の配置」の設定画面を開き、指針の表7.1が要求する鉄筋断面積を上回るように、鉄筋の径と本数を再設定する。</p>
+                <p>HOUSE-WLの近年の機能アップデートにより、この「壁端部(コーナー)筋の配置」機能は大幅に強化されている。特筆すべきは、最大2種類までの異なる鉄筋径の組み合わせに対応した点である。従来は同一径の鉄筋本数を増やすしかなかったが、新しい仕様では「D13とD16の混用」など、組み合わせのパターンから視覚的に選択して配置することができるようになっている。これにより、過密配筋を避けつつ、推奨断面積を合理的にクリアする細やかなディテール設計が可能となった。</p>
+
+                <h3>開口端における配筋設定と左右独立機能</h3>
+                <p>壁柱が建物の外端ではなく、窓やドアなどの開口部に隣接していることによってW6029が発生している場合、不足しているのは「開口補強筋」である。開口補強筋の設定を修正し、推奨値を満足させるための具体的なシステム操作手順は以下の通りである。</p>
+                <ol>
+                    <li>プログラムの入力画面から「壁開口形状の配置」のダイアログボックスを開く。</li>
+                    <li>ダイアログの最下段に配置されている「開口部補強筋番号」の項目を確認する。</li>
+                    <li>この番号指定を通じて開口補強筋のリストを呼び出し、指針の表の鉄筋量を満たす縦筋の配筋に修正・設定を行う。</li>
+                </ol>
+                <p>さらに、HOUSE-WLの極めて強力な機能として、開口部周辺の配筋を非対称に設定できる点が挙げられる。実際の建築設計では、開口位置ごとに上部のはりせい（梁の高さ）、配筋、およびはりのレベル（逆ばりや基礎ばりなど）を自由に設定できるだけでなく、開口の左右の壁ごとに壁配筋や壁端部筋を独立して設定することが可能である。</p>
+                <p>たとえば、開口の右側には十分な壁幅（長大な耐力壁）があるため応力に余裕があり推奨値も容易に満たせるが、左側は狭小な袖壁となっておりW6029が出力されてしまう、というケースが頻発する。このような場合でも、HOUSE-WLであれば左側の壁に対してのみピンポイントで開口補強筋の増量や、壁柱の断面計算条件（曲げ補強筋の左右端別詳細設定）を適用し、効率的に警告を解消することが可能である。画面には建物形状に忠実なモデル化図（軸組図）が表示されるため、設計者は自分がどの部位の配筋を変更しているかを視覚的に確認しながら、誤りなく迅速に作業を進めることができる。</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="../js/common.js"></script>
+<script src="../js/wrc_simulator.js"></script>
+</body>
+</html>

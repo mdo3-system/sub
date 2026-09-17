@@ -24,7 +24,9 @@ const GlobalInfo = {
         const isSubDir = window.location.pathname.includes('/tools/');
         const portalPath = isSubDir ? '../index.html' : './index.html';
         const hubPath = isSubDir ? '../shosai-hub.html' : './shosai-hub.html';
+        const wrcHubPath = isSubDir ? '../wrc-hub.html' : './wrc-hub.html';
         const isHubTool = window.location.pathname.includes('shosai-') || window.location.pathname.includes('neta') || window.location.pathname.includes('kugihairetsu');
+        const isWrcTool = window.location.pathname.includes('wrc_') || window.location.pathname.includes('wrc-');
 
         let navHtml = `
             <div class="global-header-nav no-print">
@@ -40,6 +42,16 @@ const GlobalInfo = {
                 <a href="${hubPath}" class="nav-link">
                     <span class="material-symbols-outlined">grid_view</span>
                     詳細計算パッケージへ
+                </a>
+            `;
+        }
+
+        // WRC造ツールの場合はWRCハブへの戻りも追加
+        if (isWrcTool && !window.location.pathname.includes('wrc-hub.html')) {
+            navHtml += `
+                <a href="${wrcHubPath}" class="nav-link">
+                    <span class="material-symbols-outlined">domain</span>
+                    WRC造パッケージへ
                 </a>
             `;
         }
