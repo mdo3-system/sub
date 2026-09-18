@@ -82,6 +82,14 @@
     box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
 }
 
+.fbh-input-group input[readonly] {
+    background-color: #f1f5f9;
+    color: #475569;
+    cursor: default;
+    border-color: #cbd5e1;
+}
+
+
 .fbh-input-group .unit {
     width: 48px;
     margin-left: 6px;

@@ -1,0 +1,411 @@
+@charset "UTF-8";
+
+/* ========================================================
+   基礎スラブ内補強 釣り合い鉄筋比の計算 (balanced_rebar_ratio.css)
+   ======================================================== */
+
+.brr-app-container {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    margin-top: 15px;
+}
+
+/* 左側：操作・入力パネル */
+.brr-controls {
+    flex: 0 0 380px;
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 18px;
+    box-shadow: var(--shadow-sm);
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+}
+
+.brr-controls h2 {
+    font-size: 0.95rem;
+    color: var(--primary);
+    border-left: 4px solid var(--accent);
+    padding-left: 8px;
+    margin: 16px 0 10px 0;
+    font-weight: 700;
+}
+
+.brr-controls h2:first-child {
+    margin-top: 0;
+}
+
+.brr-section-box {
+    border: 1px solid #e2e8f0;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    border-radius: var(--radius-sm);
+    background-color: #f8fafc;
+}
+
+.brr-section-box h3 {
+    margin: 0 0 8px 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    border-bottom: 1px dashed #cbd5e1;
+    padding-bottom: 4px;
+}
+
+.brr-input-group {
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+}
+
+.brr-input-group label {
+    flex: 1;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.brr-input-group input,
+.brr-input-group select {
+    width: 95px;
+    padding: 4px 6px;
+    text-align: right;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    background-color: #ffffff;
+}
+
+.brr-input-group select {
+    text-align: left;
+}
+
+.brr-input-group input:focus,
+.brr-input-group select:focus {
+    border-color: var(--accent);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.brr-input-group input[readonly] {
+    background-color: #f1f5f9;
+    color: #475569;
+    cursor: default;
+    border-color: #cbd5e1;
+}
+
+.brr-input-group .unit {
+    width: 52px;
+    margin-left: 6px;
+    font-size: 0.78rem;
+    color: #64748b;
+    text-align: left;
+}
+
+/* 左側判定バナー */
+.brr-status-card {
+    padding: 12px;
+    border-radius: var(--radius-sm);
+    margin-top: 14px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    color: #ffffff;
+    box-shadow: var(--shadow-sm);
+}
+
+.brr-status-card.ok {
+    background-color: #059669;
+}
+
+.brr-status-card.ng {
+    background-color: #dc2626;
+}
+
+.brr-status-card .status-icon {
+    font-size: 24px;
+    line-height: 1;
+}
+
+.brr-status-card .status-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-bottom: 2px;
+}
+
+.brr-status-card .status-desc {
+    font-size: 0.78rem;
+    opacity: 0.95;
+    line-height: 1.35;
+}
+
+/* 右側：A4プレビュー領域 */
+.brr-preview-wrapper {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    background-color: #94a3b8;
+    padding: 20px;
+    border-radius: var(--radius-md);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+    overflow-x: auto;
+}
+
+/* A4用紙シートスタイル */
+.brr-a4-sheet {
+    background: #ffffff;
+    width: 210mm;
+    min-height: 297mm;
+    padding: 12mm 15mm;
+    box-sizing: border-box;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    color: #1e293b;
+    font-size: 8.8pt;
+    line-height: 1.4;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+/* 帳票ヘッダー */
+.report-title-bar {
+    border-bottom: 2px solid #0f172a;
+    padding-bottom: 4px;
+    margin-bottom: 10px;
+}
+
+.report-title-bar h1 {
+    font-size: 13pt;
+    font-weight: 700;
+    margin: 0;
+    padding: 0;
+    border: none;
+    display: block;
+    color: #0f172a;
+    letter-spacing: 0.5px;
+}
+
+.report-sub-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 8.2pt;
+    margin-bottom: 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 5px 10px;
+    border-radius: 4px;
+}
+
+.report-sub-header .info-item {
+    display: flex;
+    gap: 6px;
+}
+
+.report-sub-header .info-label {
+    font-weight: 700;
+    color: #475569;
+}
+
+/* 帳票セクション見出し */
+.report-sec-h2 {
+    font-size: 9.5pt;
+    font-weight: 700;
+    color: #0f172a;
+    border-left: 3.5px solid #2563eb;
+    padding-left: 6px;
+    margin: 10px 0 6px 0;
+    display: flex;
+    align-items: center;
+}
+
+/* 帳票テーブル */
+table.brr-report-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 8px;
+    font-size: 8.5pt;
+}
+
+table.brr-report-table th,
+table.brr-report-table td {
+    border: 1px solid #334155;
+    padding: 4px 6px;
+    text-align: center;
+}
+
+table.brr-report-table th {
+    background-color: #f1f5f9;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+table.brr-report-table td.highlight {
+    background-color: #fefce8;
+    font-weight: 700;
+}
+
+/* ゲージバー表示 */
+.gauge-container {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 10px 14px 16px 14px;
+    margin: 8px 0;
+}
+
+.gauge-track {
+    position: relative;
+    height: 18px;
+    background-color: #e2e8f0;
+    border-radius: 9px;
+    overflow: visible;
+    margin-top: 14px;
+}
+
+.gauge-fill {
+    height: 100%;
+    border-radius: 9px;
+    transition: width 0.3s ease;
+}
+
+.gauge-fill.ok {
+    background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+}
+
+.gauge-fill.ng {
+    background: linear-gradient(90deg, #f59e0b 0%, #dc2626 100%);
+}
+
+.gauge-marker-ptb {
+    position: absolute;
+    top: -5px;
+    bottom: -5px;
+    width: 2px;
+    background-color: #0f172a;
+    z-index: 10;
+}
+
+.gauge-marker-ptb::after {
+    content: attr(data-label);
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 7.5pt;
+    font-weight: 700;
+    color: #1e293b;
+    white-space: nowrap;
+    background: #ffffff;
+    padding: 0 4px;
+    border: 1px solid #94a3b8;
+    border-radius: 3px;
+}
+
+.gauge-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 7.2pt;
+    color: #64748b;
+    margin-top: 4px;
+}
+
+/* 判定結果バッジ */
+.judge-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 9pt;
+}
+
+.judge-badge.ok {
+    color: #065f46;
+    background-color: #d1fae5;
+    border: 1px solid #34d399;
+}
+
+.judge-badge.ng {
+    color: #991b1b;
+    background-color: #fee2e2;
+    border: 1px solid #f87171;
+}
+
+/* 考察・推奨対策ボックス */
+.report-note-box {
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 8px 10px;
+    background-color: #f8fafc;
+    margin-bottom: 6px;
+    font-size: 8.2pt;
+    line-height: 1.45;
+}
+
+.report-note-box .note-title {
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 4px;
+    font-size: 8.6pt;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.report-footer-notes {
+    font-size: 7.5pt;
+    color: #64748b;
+    text-align: right;
+    margin-top: 6px;
+    border-top: 1px dotted #cbd5e1;
+    padding-top: 4px;
+}
+
+/* 印刷スタイル */
+@media print {
+    body {
+        background: #ffffff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .no-print,
+    #global-header-container,
+    .tool-title,
+    .brr-controls {
+        display: none !important;
+    }
+
+    .tool-container {
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .brr-app-container {
+        display: block !important;
+        margin: 0 !important;
+    }
+
+    .brr-preview-wrapper {
+        background: none !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+        display: block !important;
+    }
+
+    .brr-a4-sheet {
+        width: 100% !important;
+        min-height: auto !important;
+        box-shadow: none !important;
+        padding: 8mm 10mm !important;
+        page-break-after: avoid;
+        page-break-inside: avoid;
+    }
+
+    @page {
+        size: A4 portrait;
+        margin: 0;
+    }
+}

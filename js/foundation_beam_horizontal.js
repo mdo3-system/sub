@@ -89,11 +89,36 @@ function runFEM(L, B, I, E_kNm2, kv, TdL, TdR) {
     };
 }
 
+// LMa（長期許容曲げ）からSMa（短期許容曲げ＝LMa × 1.5）を自動算出
+function updateSMa() {
+    const lmaTopEl = document.getElementById('in_LMa_top');
+    const lmaBotEl = document.getElementById('in_LMa_bot');
+    const smaTopEl = document.getElementById('in_SMa_top');
+    const smaBotEl = document.getElementById('in_SMa_bot');
+
+    if (lmaTopEl && smaTopEl) {
+        const val = parseFloat(lmaTopEl.value);
+        if (!isNaN(val)) {
+            smaTopEl.value = (val * 1.5).toFixed(3);
+        }
+    }
+    if (lmaBotEl && smaBotEl) {
+        const val = parseFloat(lmaBotEl.value);
+        if (!isNaN(val)) {
+            smaBotEl.value = (val * 1.5).toFixed(3);
+        }
+    }
+}
+
 // メイン計算実行および帳票反映関数
 function calculate() {
+    // LMa連動のSMaを最新化
+    updateSMa();
+
     // 工事名称・検討部位の反映
     const gProjectInput = document.getElementById('g_project');
     const projectName = (gProjectInput && gProjectInput.value.trim()) ? gProjectInput.value.trim() : (document.getElementById('in_project')?.value || "—");
+
     const partName = document.getElementById('in_part')?.value || "X5通り Y5-Y6 基礎梁 (FG2)";
 
     const outProject = document.getElementById('out_project');
@@ -210,27 +235,6 @@ function exportPDF() {
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
     html2pdf().set(opt).from(element).save();
-}
-
-// LMa（長期許容曲げ）からSMa（短期許容曲げ＝LMa × 1.5）を自動算出
-function updateSMa() {
-    const lmaTopEl = document.getElementById('in_LMa_top');
-    const lmaBotEl = document.getElementById('in_LMa_bot');
-    const smaTopEl = document.getElementById('in_SMa_top');
-    const smaBotEl = document.getElementById('in_SMa_bot');
-
-    if (lmaTopEl && smaTopEl) {
-        const val = parseFloat(lmaTopEl.value);
-        if (!isNaN(val)) {
-            smaTopEl.value = (val * 1.5).toFixed(3);
-        }
-    }
-    if (lmaBotEl && smaBotEl) {
-        const val = parseFloat(lmaBotEl.value);
-        if (!isNaN(val)) {
-            smaBotEl.value = (val * 1.5).toFixed(3);
-        }
-    }
 }
 
 // 初期化

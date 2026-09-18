@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基礎スラブ内補強 釣り合い鉄筋比の計算 | 構造計算補助ツール</title>
+    <script>
+        if (window.location.protocol !== 'file:') {
+            fetch('/api/check_auth.php')
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (data && data.authenticated === false) {
+                        window.location.replace('/login.html');
+                    }
+                })
+                .catch(err => console.warn("Auth check failed:", err));
+        }
+    </script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/balanced_rebar_ratio.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+
+<div class="tool-container">
+    <!-- システム共通ヘッダー（工事名称・計算日・設計者入力スロット） -->
+    <div id="global-header-container"></div>
+
+    <div class="no-print" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <h1 class="tool-title" style="margin:0; border:none;">
+            <span class="material-symbols-outlined" style="color: var(--accent);">calculate</span>
+            基礎スラブ内補強 釣り合い鉄筋比の計算
+        </h1>
+        <div style="display:flex; gap:10px;">
+            <button class="btn btn-primary" onclick="printReport()">🖨️ A4 印刷</button>
+            <button class="btn btn-success" onclick="exportPDF()">📄 A4 PDF 出力</button>
+        </div>
+    </div>
+
+    <div class="brr-app-container">
+        <!-- 左側：入力・解析条件コントロール（画面のみ表示） -->
+        <div class="brr-controls no-print">
+            <h2>■ 検討部位・断面寸法</h2>
+            <div class="brr-input-group">
+                <label>検討部位</label>
+                <input type="text" id="in_part" value="基礎スラブ人通口部" style="width:160px; text-align:left;" oninput="calculate()">
+            </div>
+            <div class="brr-input-group">
+                <label>スラブ幅 (b)</label>
+                <input type="number" id="in_width" value="1000" step="10" oninput="calculate()">
+                <span class="unit">mm</span>
+            </div>
+            <div class="brr-input-group">
+                <label>スラブ厚・せい (D)</label>
+                <input type="number" id="in_depth" value="150" step="5" oninput="calculate()">
+                <span class="unit">mm</span>
+            </div>
+            <div class="brr-input-group">
+                <label>かぶり厚さ (最外端)</label>
+                <input type="number" id="in_cover" value="60" step="5" oninput="calculate()">
+                <span class="unit">mm</span>
+            </div>
+
+            <h2>■ 配筋・材料条件</h2>
+            <div class="brr-input-group">
+                <label>鉄筋径</label>
+                <select id="in_rebar_size" onchange="calculate()">
+                    <option value="D10">D10 (at=71.3mm²)</option>
+                    <option value="D13">D13 (at=126.7mm²)</option>
+                    <option value="D16" selected>D16 (at=198.6mm²)</option>
+                    <option value="D19">D19 (at=286.5mm²)</option>
+                    <option value="D22">D22 (at=387.1mm²)</option>
+                </select>
+                <span class="unit"></span>
+            </div>
+            <div class="brr-input-group">
+                <label>鉄筋本数</label>
+                <input type="number" id="in_rebar_count" value="9" min="1" max="50" step="1" oninput="calculate()">
+                <span class="unit">本</span>
+            </div>
+            <div class="brr-input-group">
+                <label>鉄筋種類</label>
+                <select id="in_rebar_type" onchange="calculate()">
+                    <option value="SD295A" selected>SD295A (ft=295)</option>
+                    <option value="SD345">SD345 (ft=345)</option>
+                </select>
+                <span class="unit"></span>
+            </div>
+            <div class="brr-input-group">
+                <label>コンクリート強度 (Fc)</label>
+                <select id="in_fc" onchange="calculate()">
+                    <option value="21" selected>21 N/mm²</option>
+                    <option value="24">24 N/mm²</option>
+                    <option value="27">27 N/mm²</option>
+                    <option value="30">30 N/mm²</option>
+                    <option value="33">33 N/mm²</option>
+                    <option value="36">36 N/mm²</option>
+                </select>
+                <span class="unit"></span>
+            </div>
+
+            <!-- 判定結果ステータスカード -->
+            <div id="side_status_card" class="brr-status-card ok">
+                <span class="material-symbols-outlined status-icon">info</span>
+                <div>
+                    <div id="side_status_title" class="status-title">判定中...</div>
+                    <div id="side_status_desc" class="status-desc">計算結果を確認してください。</div>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" style="width:100%; margin-top:15px; padding:10px; font-weight:bold;" onclick="calculate()">
+                再計算実行
+            </button>
+        </div>
+
+        <!-- 右側：A4プレビュー領域（印刷・PDF出力対象） -->
+        <div class="brr-preview-wrapper">
+            <div id="report-page" class="brr-a4-sheet">
+                <!-- 帳票タイトル -->
+                <div class="report-title-bar">
+                    <h1>基礎スラブ内補強 釣り合い鉄筋比検討書（許容応力度設計）</h1>
+                </div>
+
+                <!-- 帳票基本情報ヘッダー -->
+                <div class="report-sub-header">
+                    <div class="info-item">
+                        <span class="info-label">件名：</span>
+                        <span id="out_project">—</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">検討部位：</span>
+                        <span id="out_part">基礎スラブ人通口部</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">設計者：</span>
+                        <span id="out_designer">—</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">計算日：</span>
+                        <span id="out_date">2026/09/18</span>
+                    </div>
+                </div>
+
+                <!-- 1. 設計条件および断面寸法 -->
+                <div class="report-sec-h2">1. 設計条件および断面・材料諸元</div>
+                <table class="brr-report-table">
+                    <tr>
+                        <th style="width: 25%;">スラブ幅 (b)</th>
+                        <td style="width: 25%;"><span id="out_b">1,000</span> mm</td>
+                        <th style="width: 25%;">スラブ厚・せい (D)</th>
+                        <td style="width: 25%;"><span id="out_D">150</span> mm</td>
+                    </tr>
+                    <tr>
+                        <th>かぶり厚さ (最外端)</th>
+                        <td><span id="out_cover">60</span> mm</td>
+                        <th>有効せい (d)</th>
+                        <td class="highlight"><span id="out_d">82.1</span> mm</td>
+                    </tr>
+                    <tr>
+                        <th>配筋仕様</th>
+                        <td><span id="out_rebar_str">9-D16</span></td>
+                        <th>引張鉄筋全断面積 (at)</th>
+                        <td class="highlight"><span id="out_rebar_area">1,787.4</span> mm²</td>
+                    </tr>
+                    <tr>
+                        <th>鉄筋種別 / 許容応力度 (ft)</th>
+                        <td><span id="out_rebar_type">SD295A</span> (<span id="out_ft">295</span> N/mm²)</td>
+                        <th>コンクリート強度 (Fc)</th>
+                        <td><span id="out_fc">21</span> N/mm²</td>
+                    </tr>
+                    <tr>
+                        <th>短期許容圧縮応力度 (fc)</th>
+                        <td><span id="out_fc_allow">14.00</span> N/mm² (2/3×Fc)</td>
+                        <th>ヤング係数比 (n)</th>
+                        <td><span id="out_n">15</span></td>
+                    </tr>
+                </table>
+
+                <!-- 2. 算定式および鉄筋比の検討 -->
+                <div class="report-sec-h2">2. 引張鉄筋比 (pt) 及び 釣り合い鉄筋比 (ptb) の算定</div>
+                <table class="brr-report-table">
+                    <tr>
+                        <th style="width: 30%;">項目</th>
+                        <th style="width: 40%;">算定式</th>
+                        <th style="width: 30%;">算定値</th>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; text-align: left; padding-left: 12px;">実引張鉄筋比 (pt)</td>
+                        <td style="font-family: monospace;">pt = at / (b × d)</td>
+                        <td class="highlight" style="font-size: 1.05rem;"><span id="out_pt">2.178</span> %</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; text-align: left; padding-left: 12px;">釣り合い鉄筋比 (ptb)</td>
+                        <td style="font-family: monospace;">ptb = 0.5・(fc/ft)・[n・fc / (n・fc + ft)]</td>
+                        <td class="highlight" style="font-size: 1.05rem; color: #2563eb;"><span id="out_ptb">0.988</span> %</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; text-align: left; padding-left: 12px;">鉄筋比検定比 (pt / ptb)</td>
+                        <td>pt ≦ ptb であれば引張破壊先行（安全）</td>
+                        <td style="font-weight: bold;"><span id="out_ratio">2.204</span></td>
+                    </tr>
+                    <tr>
+                        <th colspan="2">判定結果</th>
+                        <td>
+                            <span id="out_judge_badge" class="judge-badge ok">支障なし</span>
+                        </td>
+                    </tr>
+                </table>
+
+                <!-- 視覚的ゲージバー表示 -->
+                <div class="gauge-container">
+                    <div style="font-size: 7.8pt; font-weight: bold; color: #475569; display: flex; justify-content: space-between;">
+                        <span>■ 鉄筋比の比較ゲージ（青線：釣り合い鉄筋比 ptb）</span>
+                        <span>緑：適正域 / 赤：過鉄筋域</span>
+                    </div>
+                    <div class="gauge-track">
+                        <div id="gauge_fill" class="gauge-fill ok" style="width: 50%;"></div>
+                        <div id="gauge_marker_ptb" class="gauge-marker-ptb" style="left: 33%;" data-label="釣り合い: 0.99%"></div>
+                    </div>
+                    <div class="gauge-labels">
+                        <span>0.0%</span>
+                        <span id="gauge_max_label">3.0% (スケール目安)</span>
+                    </div>
+                </div>
+
+                <!-- 3. 設計上の注意点および安全性の評価 -->
+                <div class="report-sec-h2">3. 力学的検討および設計上の注意点</div>
+                <div class="report-note-box">
+                    <div class="note-title">
+                        <span class="material-symbols-outlined" style="font-size: 16px; color: var(--accent);">fact_check</span>
+                        断面破壊性状および曲げ耐力略算式の適用判定
+                    </div>
+                    <div id="out_note_content">
+                        <!-- JSで動的生成 -->
+                    </div>
+                </div>
+
+                <!-- 4. 破壊モードに関する補足解説 -->
+                <div class="report-sec-h2">4. 基礎スラブ配筋設計における基準解説</div>
+                <div class="report-note-box" style="font-size: 8.0pt; line-height: 1.4;">
+                    <p style="margin-bottom: 4px;">
+                        <strong>【釣り合い鉄筋比とは】：</strong>
+                        コンクリートの圧縮縁応力度が許容圧縮応力度（短期 $2/3 F_c$）に達すると同時に、引張鉄筋の引張応力度が許容引張応力度（短期 $f_t$）に達する理論上の理想的鉄筋比です。
+                    </p>
+                    <p style="margin-bottom: 4px;">
+                        <strong>【過鉄筋（pt > ptb）の危険性】：</strong>
+                        鉄筋比が釣り合い鉄筋比を超過すると、鉄筋が降伏（引張限界）を迎える前にコンクリート側が圧縮圧壊します。この場合、破壊が脆性的（突然の急激な破壊）となり十分なたわみ変形性能が得られません。また、入れた鉄筋量に比例して耐力が向上しないため材料的な無駄が生じます。
+                    </p>
+                    <p>
+                        <strong>【許容応力度設計における略算式】：</strong>
+                        日本建築学会RC基準等の略算式 $M_a = a_t \cdot f_t \cdot j$（$j = 7/8 d$）は、鉄筋の引張応力によって耐力が決定される（引張破壊先行）ことを前提としています。過鉄筋状態ではこの略算式をそのまま適用することは認められず、コンクリート側許容圧縮応力度により決定される厳密な断面算定式を用いる必要があります。
+                    </p>
+                </div>
+
+                <div class="report-footer-notes">
+                    ※建築基準法施行令第38条、第82条、日本建築学会「鉄筋コンクリート構造計算規準（RC規準）」許容応力度計算法に準拠
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="../js/common.js?v=1.3.3"></script>
+<script src="../js/balanced_rebar_ratio.js?v=1.3.3"></script>
+</body>
+</html>
