@@ -107,12 +107,12 @@
                 <h3>長期許容耐力</h3>
                 <div class="fbh-input-group">
                     <label>上端主筋 LMa</label>
-                    <input type="number" id="in_LMa_top" value="18.658" step="0.001" oninput="calculate()">
+                    <input type="number" id="in_LMa_top" value="18.658" step="0.001" oninput="updateSMa(); calculate();">
                     <span class="unit">kN・m</span>
                 </div>
                 <div class="fbh-input-group">
                     <label>下端主筋 LMa</label>
-                    <input type="number" id="in_LMa_bot" value="18.658" step="0.001" oninput="calculate()">
+                    <input type="number" id="in_LMa_bot" value="18.658" step="0.001" oninput="updateSMa(); calculate();">
                     <span class="unit">kN・m</span>
                 </div>
                 <div class="fbh-input-group">
@@ -121,7 +121,7 @@
                     <span class="unit">kN</span>
                 </div>
 
-                <h3 style="margin-top:8px;">短期許容耐力</h3>
+                <h3 style="margin-top:8px;">短期許容耐力 <span style="font-size:0.75rem; font-weight:normal; color:var(--accent);">（SMa: LMa×1.5自動）</span></h3>
                 <div class="fbh-input-group">
                     <label>上端主筋 SMa</label>
                     <input type="number" id="in_SMa_top" value="27.987" step="0.001" oninput="calculate()">

@@ -212,6 +212,27 @@ function exportPDF() {
     html2pdf().set(opt).from(element).save();
 }
 
+// LMa（長期許容曲げ）からSMa（短期許容曲げ＝LMa × 1.5）を自動算出
+function updateSMa() {
+    const lmaTopEl = document.getElementById('in_LMa_top');
+    const lmaBotEl = document.getElementById('in_LMa_bot');
+    const smaTopEl = document.getElementById('in_SMa_top');
+    const smaBotEl = document.getElementById('in_SMa_bot');
+
+    if (lmaTopEl && smaTopEl) {
+        const val = parseFloat(lmaTopEl.value);
+        if (!isNaN(val)) {
+            smaTopEl.value = (val * 1.5).toFixed(3);
+        }
+    }
+    if (lmaBotEl && smaBotEl) {
+        const val = parseFloat(lmaBotEl.value);
+        if (!isNaN(val)) {
+            smaBotEl.value = (val * 1.5).toFixed(3);
+        }
+    }
+}
+
 // 初期化
 window.addEventListener('DOMContentLoaded', () => {
     // 共通ヘッダーとの連動イベント登録
@@ -223,6 +244,23 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 初回計算実行
+    // LMa入力時にSMaを自動算出連動
+    const lmaTopEl = document.getElementById('in_LMa_top');
+    const lmaBotEl = document.getElementById('in_LMa_bot');
+    if (lmaTopEl) {
+        lmaTopEl.addEventListener('input', () => {
+            updateSMa();
+            calculate();
+        });
+    }
+    if (lmaBotEl) {
+        lmaBotEl.addEventListener('input', () => {
+            updateSMa();
+            calculate();
+        });
+    }
+
+    // 初回自動算出および計算実行
+    updateSMa();
     calculate();
 });
