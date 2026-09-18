@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>片持ち基礎梁の検定（玄関ポーチ等・柱あり） | 構造計算補助ツール</title>
+    <script>
+        if (window.location.protocol !== 'file:') {
+            fetch('/api/check_auth.php')
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (data && data.authenticated === false) {
+                        window.location.replace('/login.html');
+                    }
+                })
+                .catch(err => console.warn("Auth check failed:", err));
+        }
+    </script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/cantilever_foundation_beam.css">
+</head>
+<body>
+
+<div class="tool-container">
+    <div id="global-header-container"></div>
+
+    <div class="cfb-card no-print" style="margin-bottom: 20px;">
+        <div class="cfb-card-header">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span class="material-symbols-outlined" style="color: var(--accent);">architecture</span>
+                <span>片持ち基礎梁の検定（玄関ポーチ等・一部スラブ無し）</span>
+            </div>
+            <button class="btn btn-success" onclick="printReport()">📄 A4印刷 / PDF出力</button>
+        </div>
+
+        <div style="display:flex; gap:20px; align-items:center; flex-wrap:wrap; margin-bottom:14px; background:#f8fafc; padding:12px 16px; border-radius:6px; border:1px solid #e2e8f0;">
+            <div style="display:flex; align-items:center; gap:6px;">
+                <label style="font-weight:700; font-size:0.9rem;">検討スパン・通り名:</label>
+                <input type="text" id="span_name" value="X1 通り Y3 - Y1" style="padding:5px 10px; border:1px solid #cbd5e1; border-radius:4px; font-size:0.9rem; width:200px;">
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+                <label style="font-weight:700; font-size:0.9rem;">コンクリート強度 Fc:</label>
+                <select id="fc_select" style="padding:5px 10px; border:1px solid #cbd5e1; border-radius:4px; font-size:0.9rem;" onchange="renderRows()">
+                    <option value="21" selected>21 N/mm² (LFs=0.70)</option>
+                    <option value="24">24 N/mm² (LFs=0.73)</option>
+                    <option value="27">27 N/mm² (LFs=0.76)</option>
+                    <option value="30">30 N/mm² (LFs=0.79)</option>
+                </select>
+            </div>
+            <div style="font-size:0.8rem; color:#64748b;">
+                ※自重計算は成Dにレベラー+10mmを加算。曲げ・せん断許容耐力にはレベラーは加算されません。
+            </div>
+        </div>
+
+        <!-- メイン検定テーブル -->
+        <div class="cfb-table-wrapper">
+            <table class="cfb-table">
+                <thead>
+                    <tr>
+                        <th style="width: 8%;">位置</th>
+                        <th style="width: 8%;">軸力 P<br>(kN)</th>
+                        <th style="width: 6%;">柱間<br>(m)</th>
+                        <th style="width: 6%;">梁幅 b<br>(mm)</th>
+                        <th style="width: 7%;">梁成 D<br>(mm)</th>
+                        <th style="width: 7%;">基礎自重<br>(kN)</th>
+                        <th style="width: 6%;">w<br>(kN/m)</th>
+                        <th style="width: 7%;">作用 M<br>(kN・m)</th>
+                        <th style="width: 7%;">作用 Q<br>(kN)</th>
+                        <th style="width: 12%;">上主筋配筋</th>
+                        <th style="width: 5%;">j<br>(mm)</th>
+                        <th style="width: 7%;">許容 LMa<br>(kN・m)</th>
+                        <th style="width: 7%;">許容 LQa<br>(kN)</th>
+                        <th style="width: 6%;">M検定比</th>
+                        <th style="width: 6%;">Q検定比</th>
+                        <th style="width: 5%;">判定</th>
+                        <th style="width: 4%;" class="no-print">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="beamTableBody"></tbody>
+                <tfoot>
+                    <tr style="background:#f8fafc; font-weight:bold;">
+                        <td>合計</td>
+                        <td id="sum_P">-</td>
+                        <td id="sum_L">-</td>
+                        <td colspan="14" style="text-align:left; color:#64748b; font-size:0.8rem; padding-left:12px;">
+                            ※せん断許容耐力 (LQa) はアーキトレンドの計算書より転記入力可能です（未入力時は自動計算）。
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <button class="btn btn-primary" onclick="addRow()">＋ 行を追加</button>
+            <div style="font-size:0.85rem; color:#64748b;">
+                長期許容引張応力度: D10〜D16 = 195 N/mm², D19 = 215 N/mm²
+            </div>
+        </div>
+    </div>
+
+    <!-- 印刷用帳票エリア -->
+    <div id="print_area">
+        <h2 style="text-align:center; font-size:1.3rem; margin-bottom:12px; border-bottom:2px solid #000; padding-bottom:6px;">
+            ■ 片持ち基礎梁の検定計算書（玄関ポーチ等・柱あり）
+        </h2>
+        
+        <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:9pt;">
+            <div style="font-weight:bold;">対象スパン: <span id="report_span_title">X1 通り Y3 - Y1</span></div>
+            <div>構造設計基準：建築基準法施行令 / 木造住宅基礎設計指針</div>
+        </div>
+
+        <div class="print-sec-title">1. 応力算定および断面検定</div>
+        <table class="print-table">
+            <thead>
+                <tr>
+                    <th style="width: 8%;">位置</th>
+                    <th style="width: 8%;">軸力 P<br>(kN)</th>
+                    <th style="width: 6%;">柱間<br>(m)</th>
+                    <th style="width: 8%;">断面 b×D<br>(mm)</th>
+                    <th style="width: 7%;">基礎自重<br>(kN)</th>
+                    <th style="width: 6%;">w<br>(kN/m)</th>
+                    <th style="width: 7%;">作用 M<br>(kN・m)</th>
+                    <th style="width: 7%;">作用 Q<br>(kN)</th>
+                    <th style="width: 11%;">上主筋配筋</th>
+                    <th style="width: 6%;">j<br>(mm)</th>
+                    <th style="width: 8%;">許容 LMa<br>(kN・m)</th>
+                    <th style="width: 8%;">許容 LQa<br>(kN)</th>
+                    <th style="width: 6%;">M検定比</th>
+                    <th style="width: 6%;">Q検定比</th>
+                    <th style="width: 5%;">判定</th>
+                </tr>
+            </thead>
+            <tbody id="print_table_body"></tbody>
+        </table>
+
+        <div style="font-size:8pt; line-height:1.6; color:#333; margin-top:15px; border:1px solid #ccc; padding:10px;">
+            <b>【計算条件・特記事項】</b><br>
+            1. 基礎自重計算時の梁成はレベラー厚（+10mm）を加算して算定しています（コンクリート気乾単位体積重量 γ = 24.0 kN/m³）。<br>
+            2. 許容曲げモーメント LMa および許容せん断力 LQa の算定成にはレベラー厚は算入していません。<br>
+            3. せん断長期耐力 LQa はアーキトレンド構造計算書記載値またはコンクリート許容せん断応力度より検定しています。
+        </div>
+    </div>
+</div>
+
+<script src="../js/common.js"></script>
+<script src="../js/cantilever_foundation_beam.js"></script>
+</body>
+</html>

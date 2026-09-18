@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>片持ち基礎梁（端部柱なし）＆ 片土圧検定 | 構造計算補助ツール</title>
+    <script>
+        if (window.location.protocol !== 'file:') {
+            fetch('/api/check_auth.php')
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (data && data.authenticated === false) {
+                        window.location.replace('/login.html');
+                    }
+                })
+                .catch(err => console.warn("Auth check failed:", err));
+        }
+    </script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/cantilever_beam_no_column.css">
+</head>
+<body>
+
+<div class="tool-container">
+    <div id="global-header-container"></div>
+
+    <div class="no-print" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <h1 class="tool-title" style="margin:0; border:none;">
+            <span class="material-symbols-outlined" style="color: var(--accent);">domain_verification</span>
+            片持ち基礎梁（端部柱なし）＆ 片土圧を受ける基礎梁の検定
+        </h1>
+        <button class="btn btn-success" onclick="printReport()">📄 A4印刷 / PDF出力</button>
+    </div>
+
+    <div class="cbnc-container no-print">
+        <!-- ブロック1: 片持ち基礎梁の検定（端部柱無し） -->
+        <div class="cbnc-card">
+            <div class="cbnc-card-header">
+                <div>■ 片持ち基礎梁の検定（バルコニー部等・端部柱無し）</div>
+                <div style="font-size:0.85rem; font-weight:normal; color:#64748b;">
+                    直交梁等の伝達せん断力QLを合算し、片持ち梁として下主筋を検定
+                </div>
+            </div>
+
+            <div style="display:flex; gap:16px; align-items:center; margin-bottom:12px; background:#f8fafc; padding:10px 14px; border-radius:6px; border:1px solid #e2e8f0;">
+                <label style="font-weight:700; font-size:0.9rem;">検討スパン・通り名:</label>
+                <input type="text" id="beam_name" value="X1 通り Y8 - Y9" style="padding:4px 8px; border:1px solid #cbd5e1; border-radius:4px; font-size:0.9rem; width:220px;">
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1.2fr; gap:20px;">
+                <!-- 参照梁テーブル -->
+                <div>
+                    <div style="font-weight:700; font-size:0.88rem; color:var(--primary); margin-bottom:6px;">
+                        構造計算書参照値（直交梁からの伝達せん断力 QL）
+                    </div>
+                    <table class="cbnc-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 60%;">参照通り・梁符号</th>
+                                <th style="width: 30%;">QL (kN)</th>
+                                <th style="width: 10%;" class="no-print">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="refBeamTableBody"></tbody>
+                        <tfoot>
+                            <tr style="background:#f8fafc; font-weight:bold;">
+                                <td>合計先端集中荷重 P</td>
+                                <td id="sum_P_val" style="color:var(--accent); font-size:0.95rem;">-</td>
+                                <td class="no-print"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                    <button class="btn btn-primary" style="padding:4px 10px; font-size:0.8rem; margin-top:6px;" onclick="addRefBeam()">＋ 参照梁を追加</button>
+                </div>
+
+                <!-- 断面および検定 -->
+                <div>
+                    <div style="font-weight:700; font-size:0.88rem; color:var(--primary); margin-bottom:6px;">
+                        片持ち基礎梁断面・配筋検定
+                    </div>
+                    <table class="cbnc-table">
+                        <tr>
+                            <th style="width:30%;">片持ちスパン L (m)</th>
+                            <td><input type="number" id="span_L" class="cbnc-input" value="1.0" step="0.05" onchange="calcCantileverBeam()"></td>
+                            <th style="width:25%;">作用 M (kN・m)</th>
+                            <td id="res_M" style="font-weight:bold;">-</td>
+                        </tr>
+                        <tr>
+                            <th>梁成 D (mm)</th>
+                            <td><input type="number" id="beam_D" class="cbnc-input" value="700" step="10" onchange="calcCantileverBeam()"></td>
+                            <th>作用 Q (kN)</th>
+                            <td id="res_Q" style="font-weight:bold;">-</td>
+                        </tr>
+                        <tr>
+                            <th>かぶり dt (mm)</th>
+                            <td><input type="number" id="beam_dt" class="cbnc-input" value="70" step="5" onchange="calcCantileverBeam()"></td>
+                            <th>応力心距離 j (mm)</th>
+                            <td><input type="number" id="beam_j" class="cbnc-input" value="543" step="1" onchange="calcCantileverBeam()"></td>
+                        </tr>
+                        <tr>
+                            <th>下主筋配筋</th>
+                            <td>
+                                <select id="beam_rebar" class="cbnc-input" style="text-align:left;" onchange="calcCantileverBeam()">
+                                    <option value="1-D13">1-D13 (127mm²)</option>
+                                    <option value="2-D13" selected>2-D13 (254mm²)</option>
+                                    <option value="3-D13">3-D13 (381mm²)</option>
+                                    <option value="2-D16">2-D16 (398mm²)</option>
+                                </select>
+                            </td>
+                            <th>鉄筋断面積 at</th>
+                            <td id="beam_at">254</td>
+                        </tr>
+                        <tr>
+                            <th>許容曲げ耐力 LMa (kN・m)</th>
+                            <td id="beam_LMa" style="font-weight:bold; color:var(--accent);">-</td>
+                            <th>許容せん断力 LQa (kN)</th>
+                            <td><input type="number" id="beam_LQa" class="cbnc-input" value="113.925" step="0.01" onchange="calcCantileverBeam()"></td>
+                        </tr>
+                        <tr style="background:#f8fafc; font-weight:bold;">
+                            <th>M検定比 (M/LMa)</th>
+                            <td id="beam_mRatio">-</td>
+                            <th>Q検定比 (Q/LQa)</th>
+                            <td id="beam_qRatio">-</td>
+                        </tr>
+                        <tr style="background:#f8fafc;">
+                            <th colspan="2">総合判定</th>
+                            <td colspan="2"><span id="beam_judgement" class="cbnc-badge cbnc-badge-ok">OK</span></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ブロック2: 片土圧を受ける基礎梁の検定（片持梁モデル） -->
+        <div class="cbnc-card">
+            <div class="cbnc-card-header">
+                <div>■ 片土圧を受ける基礎梁の検定（片持梁モデル）</div>
+                <div style="font-size:0.85rem; font-weight:normal; color:#64748b;">
+                    スラブ接地圧および土圧による曲げモーメントから立上がり・スラブの必要耐力を検定
+                </div>
+            </div>
+
+            <div style="display:flex; gap:16px; align-items:center; margin-bottom:12px; background:#f8fafc; padding:10px 14px; border-radius:6px; border:1px solid #e2e8f0;">
+                <label style="font-weight:700; font-size:0.9rem;">検討スパン・通り名:</label>
+                <input type="text" id="ep_name" value="X13 通り Y1 - Y6（最大応力部にて検定）" style="padding:4px 8px; border:1px solid #cbd5e1; border-radius:4px; font-size:0.9rem; width:300px;">
+            </div>
+
+            <!-- 土圧条件入力とM算定 -->
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:15px;">
+                <table class="cbnc-table">
+                    <tr>
+                        <th style="width:50%;">スラブ接地圧 (kN/m²)</th>
+                        <td><input type="number" id="ep_q_slab" class="cbnc-input" value="20.012" step="0.001" onchange="calcEarthPressure()"></td>
+                    </tr>
+                    <tr>
+                        <th>土圧係数 Ka</th>
+                        <td><input type="number" id="ep_ka" class="cbnc-input" value="0.5" step="0.05" onchange="calcEarthPressure()"></td>
+                    </tr>
+                    <tr>
+                        <th>根入れ深さ h (m)</th>
+                        <td><input type="number" id="ep_h" class="cbnc-input" value="0.85" step="0.05" onchange="calcEarthPressure()"></td>
+                    </tr>
+                    <tr>
+                        <th>土の比重 γs (kN/m³)</th>
+                        <td><input type="number" id="ep_gamma" class="cbnc-input" value="16.0" step="0.5" onchange="calcEarthPressure()"></td>
+                    </tr>
+                </table>
+
+                <div class="cbnc-formula-box">
+                    <div>・P1 = Ka × スラブ接地圧 = <strong id="ep_P1">10.006</strong> kN/m²</div>
+                    <div>・P2 = Ka × γs × h = <strong id="ep_P2">6.80</strong> kN/m²</div>
+                    <div style="margin-top:6px; color:var(--primary); font-weight:bold;">
+                        ・作用曲げモーメント M:<br>
+                        <span id="ep_formula_detail">M = 1/2 × P1 × h² + 2/3 × P2 × h² = 6.890 kN・m</span>
+                    </div>
+                    <div style="font-size:1.1rem; color:var(--accent); font-weight:bold; margin-top:4px;">
+                        M = <span id="ep_M">6.890</span> kN・m
+                    </div>
+                </div>
+            </div>
+
+            <!-- 必要耐力算定テーブル -->
+            <div style="font-weight:700; font-size:0.9rem; color:var(--primary); margin-bottom:8px;">
+                必要耐力の算定（立上がり部 & スラブ部）
+            </div>
+            <table class="cbnc-table">
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">部位</th>
+                        <th style="width: 12%;">基礎厚/幅 (mm)</th>
+                        <th style="width: 10%;">dt (mm)</th>
+                        <th style="width: 12%;">j (mm)</th>
+                        <th style="width: 15%;">必要鉄筋量 at (cm²)</th>
+                        <th style="width: 16%;">配筋仕様</th>
+                        <th style="width: 10%;">配備 at (cm²)</th>
+                        <th style="width: 10%;">検定比</th>
+                        <th style="width: 10%;">判定</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- 立上がり -->
+                    <tr>
+                        <td style="font-weight:bold;">立上がり</td>
+                        <td><input type="number" id="stand_b" class="cbnc-input" value="300" step="10" onchange="calcEarthPressure()"></td>
+                        <td><input type="number" id="stand_dt" class="cbnc-input" value="70" step="5" onchange="calcEarthPressure()"></td>
+                        <td id="stand_j">201.3</td>
+                        <td id="stand_at" style="font-weight:bold; color:var(--accent);">1.76</td>
+                        <td>
+                            <select id="stand_rebar" class="cbnc-input" style="text-align:left;" onchange="calcEarthPressure()">
+                                <option value="D10@200" selected>D10 @ 200</option>
+                                <option value="D10@150">D10 @ 150</option>
+                                <option value="D13@200">D13 @ 200</option>
+                                <option value="D13@150">D13 @ 150</option>
+                            </select>
+                        </td>
+                        <td id="stand_area">3.55</td>
+                        <td id="stand_ratio" style="font-weight:bold;">0.49</td>
+                        <td><span id="stand_judgement" class="cbnc-badge cbnc-badge-ok">OK</span></td>
+                    </tr>
+                    <!-- スラブ -->
+                    <tr>
+                        <td style="font-weight:bold;">スラブ</td>
+                        <td><input type="number" id="slab_tb" class="cbnc-input" value="150" step="10" onchange="calcEarthPressure()"></td>
+                        <td><input type="number" id="slab_dt" class="cbnc-input" value="80" step="5" onchange="calcEarthPressure()"></td>
+                        <td><input type="number" id="slab_j_input" class="cbnc-input" value="70.0" step="0.5" onchange="calcEarthPressure()"></td>
+                        <td id="slab_at" style="font-weight:bold; color:var(--accent);">5.05</td>
+                        <td>
+                            <select id="slab_rebar" class="cbnc-input" style="text-align:left;" onchange="calcEarthPressure()">
+                                <option value="D10@150">D10 @ 150</option>
+                                <option value="D13@200">D13 @ 200</option>
+                                <option value="D13@150" selected>D13 @ 150</option>
+                                <option value="D13@100">D13 @ 100</option>
+                            </select>
+                        </td>
+                        <td id="slab_area">8.47</td>
+                        <td id="slab_ratio" style="font-weight:bold;">0.60</td>
+                        <td><span id="slab_judgement" class="cbnc-badge cbnc-badge-ok">OK</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 印刷用帳票エリア -->
+    <div id="print_area">
+        <h2 style="text-align:center; font-size:1.3rem; margin-bottom:10px; border-bottom:2px solid #000; padding-bottom:4px;">
+            ■ 片持ち基礎梁（端部柱なし）＆ 片土圧を受ける基礎梁の検定計算書
+        </h2>
+
+        <!-- 印刷: ブロック1 -->
+        <div class="print-sec-title">1. 片持ち基礎梁の検定（端部柱無し）: <span id="p_beam_name">X1 通り Y8 - Y9</span></div>
+        <div style="display:flex; gap:20px; align-items:flex-start;">
+            <div style="flex:1;">
+                <div style="font-weight:bold; font-size:8pt; margin-bottom:4px;">【構造計算書参照値】</div>
+                <table class="print-table">
+                    <thead>
+                        <tr>
+                            <th>参照通り・符号</th>
+                            <th>QL (kN)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="p_ref_tbody"></tbody>
+                    <tfoot>
+                        <tr style="background:#f1f5f9; font-weight:bold;">
+                            <td>合計集中荷重 P</td>
+                            <td id="p_sum_P">-</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div style="flex:1.5;">
+                <div style="font-weight:bold; font-size:8pt; margin-bottom:4px;">【断面算定および検定結果】</div>
+                <table class="print-table">
+                    <tr>
+                        <th style="width:30%;">片持ちスパン L</th>
+                        <td><span id="p_span_L">-</span> m</td>
+                        <th style="width:25%;">作用 M</th>
+                        <td><span id="p_M">-</span> kN・m</td>
+                    </tr>
+                    <tr>
+                        <th>梁成 D / dt</th>
+                        <td>D=<span id="p_D">-</span> / dt=<span id="p_dt">-</span> mm</td>
+                        <th>作用 Q</th>
+                        <td><span id="p_Q">-</span> kN</td>
+                    </tr>
+                    <tr>
+                        <th>応力心距離 j</th>
+                        <td><span id="p_j">-</span> mm</td>
+                        <th>下主筋配筋</th>
+                        <td><span id="p_rebar">-</span> (at=<span id="p_at">-</span>mm²)</td>
+                    </tr>
+                    <tr>
+                        <th>許容耐力 LMa</th>
+                        <td><span id="p_LMa">-</span> kN・m</td>
+                        <th>許容せん断力 LQa</th>
+                        <td><span id="p_LQa">-</span> kN</td>
+                    </tr>
+                    <tr style="background:#f1f5f9; font-weight:bold;">
+                        <th>M検定比</th>
+                        <td><span id="p_mRatio">-</span> (≦ 1.0 OK)</td>
+                        <th>Q検定比</th>
+                        <td><span id="p_qRatio">-</span> (≦ 1.0 OK)</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- 印刷: ブロック2 -->
+        <div class="print-sec-title">2. 片土圧を受ける基礎梁の検定（片持梁モデル）: <span id="p_ep_name">X13 通り Y1 - Y6</span></div>
+        <div style="display:flex; justify-content:space-between; font-size:8pt; margin-bottom:6px;">
+            <div>スラブ接地圧: <span id="p_q_slab">-</span> kN/m² ｜ 土圧係数: <span id="p_ka">-</span> ｜ 根入れ深さ: <span id="p_h">-</span> m ｜ 土の比重: <span id="p_gamma">-</span> kN/m³</div>
+            <div style="font-weight:bold;">P1: <span id="p_P1">-</span> kN/m² ｜ P2: <span id="p_P2">-</span> kN/m²</div>
+        </div>
+        <div style="font-size:8pt; font-family:monospace; background:#f9f9f9; border:1px solid #ccc; padding:4px 8px; margin-bottom:8px;">
+            <span id="p_formula">M = 1/2 × P1 × h² + 2/3 × P2 × h² = 6.890 kN・m</span>
+        </div>
+
+        <table class="print-table">
+            <thead>
+                <tr>
+                    <th style="width: 15%;">部位</th>
+                    <th style="width: 15%;">基礎厚/幅 (mm)</th>
+                    <th style="width: 10%;">dt (mm)</th>
+                    <th style="width: 12%;">j (mm)</th>
+                    <th style="width: 16%;">必要鉄筋量 at (cm²)</th>
+                    <th style="width: 16%;">配筋仕様</th>
+                    <th style="width: 12%;">配備 at (cm²)</th>
+                    <th style="width: 12%;">検定比</th>
+                    <th style="width: 8%;">判定</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="font-weight:bold;">立上がり</td>
+                    <td>幅 <span id="p_stand_b">-</span></td>
+                    <td><span id="p_stand_dt">-</span></td>
+                    <td><span id="p_stand_j">-</span></td>
+                    <td style="font-weight:bold;"><span id="p_stand_at">-</span></td>
+                    <td><span id="p_stand_rebar">-</span></td>
+                    <td><span id="p_stand_area">-</span></td>
+                    <td style="font-weight:bold;"><span id="p_stand_ratio">-</span></td>
+                    <td>OK</td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;">スラブ</td>
+                    <td>厚 <span id="p_slab_tb">-</span></td>
+                    <td><span id="p_slab_dt">-</span></td>
+                    <td><span id="p_slab_j">-</span></td>
+                    <td style="font-weight:bold;"><span id="p_slab_at">-</span></td>
+                    <td><span id="p_slab_rebar">-</span></td>
+                    <td><span id="p_slab_area">-</span></td>
+                    <td style="font-weight:bold;"><span id="p_slab_ratio">-</span></td>
+                    <td>OK</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div style="font-size:8pt; line-height:1.5; color:#333; margin-top:10px; border:1px solid #ccc; padding:8px;">
+            <b>【設計根拠】</b><br>
+            ・建築基準法施行令第38条および日本建築学会「建築基礎構造設計指針」に準拠。<br>
+            ・片土圧算定式: M = 1/2・Ka・q・h² + 2/3・Ka・γs・h²（常時・長期応力検討）。
+        </div>
+    </div>
+</div>
+
+<script src="../js/common.js"></script>
+<script src="../js/cantilever_beam_no_column.js"></script>
+</body>
+</html>
