@@ -1,0 +1,26 @@
+{
+  "name": "sub",
+  "version": "1.0.0",
+  "description": "",
+  "main": "Version.js",
+  "scripts": {
+    "build:wasm": "asc assembly/index.ts --target release",
+    "build:wasm:debug": "asc assembly/index.ts --target debug",
+    "deploy:app": "cmd /c scripts\\deploy_app.bat"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mdo3-system/sub.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/mdo3-system/sub/issues"
+  },
+  "homepage": "https://github.com/mdo3-system/sub#readme",
+  "devDependencies": {
+    "assemblyscript": "^0.28.20"
+  }
+}
