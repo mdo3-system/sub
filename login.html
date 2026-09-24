@@ -20,6 +20,14 @@
     </div>
 
     <script>
+        // ログイン画面表示時に過去のセッション・ヘッダー情報（物件名・設計者等）を全クリア
+        document.addEventListener('DOMContentLoaded', () => {
+            sessionStorage.clear();
+            ['g_project', 'g_date', 'g_engineer', 'g_arch_type', 'g_arch_no'].forEach(id => {
+                localStorage.removeItem('struct_tools_' + id);
+            });
+        });
+
 async function sendMagicLink() {
             const email = document.getElementById('email').value;
             const msgObj = document.getElementById('msg');

@@ -251,11 +251,40 @@ h1.tool-title, h1 {
     font-weight: 700;
 }
 
+/* --- 共通保存・復元・印刷操作バー --- */
+.tool-action-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding: 12px 20px;
+    background: #ffffff;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+}
+
+.tool-action-bar .action-bar-title {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    margin-right: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tool-action-bar .btn {
+    padding: 7px 14px;
+    font-size: 0.85rem;
+}
+
 /* =========================================
    共通印刷スタイル (@media print)
 ========================================= */
 @media print {
-    .no-print, .global-header-inputs, .global-header-nav, h1:not(.print-title) {
+    .no-print, .global-header-inputs, .global-header-nav, .tool-action-bar, h1:not(.print-title) {
         display: none !important;
     }
 
