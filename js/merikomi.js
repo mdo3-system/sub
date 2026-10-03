@@ -147,46 +147,105 @@ function attemptPrint() {
 }
 
 // --- JSONデータのエクスポート・インポート ---
-function exportData() {
+function collectMerikomiRows() {
     const rows = document.querySelectorAll('tbody tr');
     const data = [];
     rows.forEach(tr => {
-        data.push({
-            f: tr.querySelectorAll('input[type="text"]')[0].value,
-            p: tr.querySelectorAll('input[type="text"]')[1].value,
-            l: tr.querySelector('.f-long').value,
-            s: tr.querySelector('.f-short').value,
-            st: tr.querySelector('.s-type').value,
-            w: tr.querySelector('.s-width').value,
-            pt: tr.querySelector('.s-part').value,
-            wd: tr.querySelector('.s-wood').value
-        });
+        const textInputs = tr.querySelectorAll('input[type="text"]');
+        const fLong = tr.querySelector('.f-long');
+        const fShort = tr.querySelector('.f-short');
+        const sType = tr.querySelector('.s-type');
+        const sWidth = tr.querySelector('.s-width');
+        const sPart = tr.querySelector('.s-part');
+        const sWood = tr.querySelector('.s-wood');
+
+        if (textInputs.length >= 2 && fLong && fShort && sWidth) {
+            data.push({
+                f: textInputs[0].value || "1F",
+                p: textInputs[1].value || "",
+                l: fLong.value || "0",
+                s: fShort.value || "0",
+                st: sType ? sType.value : "水平",
+                w: sWidth.value || "105",
+                pt: sPart ? sPart.value : "dodai",
+                wd: sWood ? sWood.value : "hinoki"
+            });
+        }
     });
+    return data;
+}
+window.collectMerikomiRows = collectMerikomiRows;
 
-    if(data.length === 0) { alert("保存するデータがありません。"); return; }
+function exportData() {
+    const rows = collectMerikomiRows();
+    if(rows.length === 0) {
+        alert("保存するデータがありません。行を追加してください。");
+        return;
+    }
 
-    const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+    const payload = {
+        app_version: "1.4.0",
+        tool_id: "merikomi",
+        title: "土台プレートII 許容めり込み耐力 検討書",
+        timestamp: new Date().toISOString(),
+        merikomi_rows: rows,
+        rows: rows
+    };
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'merikomi_plate_data.json';
+    a.download = `merikomi_plate_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
 }
 
+window.addRow = addRow;
+window.checkOverallStatus = checkOverallStatus;
+
+window.restoreToolData = function(data) {
+    if (!data) return false;
+    let rows = [];
+    if (Array.isArray(data)) {
+        rows = data;
+    } else if (data && typeof data === 'object') {
+        rows = data.merikomi_rows || data.rows || data.data?.merikomi_rows || data.data?.rows || (Array.isArray(data.data) ? data.data : []);
+    }
+    if (!Array.isArray(rows) || rows.length === 0) return false;
+
+    const targetTbody = document.getElementById('table_body') || document.querySelector('tbody');
+    if (targetTbody) {
+        targetTbody.innerHTML = '';
+        rows.forEach(d => addRow(d));
+        checkOverallStatus();
+        return true;
+    }
+    return false;
+};
+
 function importData(e) {
-    const file = e.target.files[0];
+    const file = e.target.files && e.target.files[0];
     if (!file) return;
+
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = function(ev) {
         try {
-            const data = JSON.parse(e.target.result);
-            tbody.innerHTML = '';
-            data.forEach(d => addRow(d));
-            checkOverallStatus();
-            document.getElementById('json_upload').value = ''; // リセット
+            const parsed = JSON.parse(ev.target.result);
+            if (window.restoreToolData(parsed)) {
+                const targetTbody = document.getElementById('table_body') || document.querySelector('tbody');
+                const count = targetTbody ? targetTbody.querySelectorAll('tr').length : 0;
+                alert(`✓ めり込み補強データを正常に復元しました。（検討柱: ${count} 箇所）`);
+            } else {
+                throw new Error("有効なめり込みデータ（柱の検討行）が見つかりませんでした。");
+            }
         } catch (err) {
-            alert('ファイルの読み込みに失敗しました。対応する JSONファイルを選択してください。');
+            console.error("Merikomi load error:", err);
+            alert('ファイルの読み込みに失敗しました。\n' + err.message);
+        } finally {
+            if (e.target) e.target.value = ''; // 同一ファイルの再選択を許可
         }
     };
     reader.readAsText(file);

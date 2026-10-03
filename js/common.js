@@ -231,23 +231,28 @@ const ToolStorage = {
         }
     },
 
-    // 画面の全入力値を収集してJSONファイルをダウンロード保存
+    // 画面の全入力値および各ツール固有データ（人通口openings、Z係数tableHtml等）を収集して保存
     saveData: function() {
         const toolName = window.location.pathname.split('/').pop().replace('.html', '') || 'structural_tool';
         const docTitle = document.title || toolName;
         const headerData = GlobalInfo.getData();
 
-        // フォーム内の全input, select, textareaの値を収集
+        // 1. 各ツール固有の事前同期を実行
+        if (typeof window.syncDomToOpenings === 'function') {
+            window.syncDomToOpenings();
+        }
+
+        // 2. フォーム内の全input, select, textareaの値を収集
         const formValues = {};
         const elements = document.querySelectorAll('input, select, textarea');
 
         elements.forEach(el => {
-            if (!el.id && !el.name) return;
-            const key = el.id || el.name;
+            const key = el.id || el.name || el.dataset.field;
+            if (!key) return;
             if (key.startsWith('g_')) return; // ヘッダー情報は別枠管理
 
             if (el.type === 'checkbox' || el.type === 'radio') {
-                if (el.checked) formValues[key] = el.value;
+                if (el.checked) formValues[key] = el.value || true;
             } else {
                 formValues[key] = el.value;
             }
@@ -261,6 +266,39 @@ const ToolStorage = {
             header: headerData,
             data: formValues
         };
+
+        // 3. 人通口ツール等の開口データ (openings) を完全格納
+        if (Array.isArray(window.openings) && window.openings.length > 0) {
+            exportPayload.openings = window.openings;
+            exportPayload.project = {
+                project: headerData.g_project,
+                date: headerData.g_date,
+                engineer: headerData.g_engineer,
+                fc: document.getElementById('p_fc')?.value || "21",
+                note: document.getElementById('p_note')?.value || ""
+            };
+        }
+
+        // 4. Z係数ツール等の履歴テーブル (tableHtml) を完全格納
+        const ziTable = document.querySelector('#resultTable tbody');
+        if (ziTable && ziTable.innerHTML.trim() !== '') {
+            exportPayload.tableHtml = ziTable.innerHTML;
+            exportPayload.inputs = formValues;
+        }
+
+        // 5. 垂木・直貼り屋根ツール等のparams
+        if (document.getElementById('panel_spec')) {
+            exportPayload.params = formValues;
+        }
+
+        // 6. めり込み補強ツール等の行データ (merikomi_rows) を完全格納
+        if (typeof window.collectMerikomiRows === 'function') {
+            const mRows = window.collectMerikomiRows();
+            if (mRows.length > 0) {
+                exportPayload.merikomi_rows = mRows;
+                exportPayload.rows = mRows;
+            }
+        }
 
         const jsonStr = JSON.stringify(exportPayload, null, 2);
         const blob = new Blob([jsonStr], { type: 'application/json' });
@@ -288,7 +326,7 @@ const ToolStorage = {
     },
 
     handleFileSelect: function(event) {
-        const file = event.target.files[0];
+        const file = event.target.files && event.target.files[0];
         if (!file) return;
 
         const reader = new FileReader();
@@ -301,59 +339,165 @@ const ToolStorage = {
                 this.restoreData(payload);
             } catch (err) {
                 alert("ファイルの読み込みに失敗しました: " + err.message);
+            } finally {
+                event.target.value = ''; // 同一ファイルの再選択を許可
             }
         };
         reader.readAsText(file);
     },
 
     restoreData: function(payload) {
-        // 1. ヘッダー情報の復元
-        if (payload.header) {
-            if (payload.header.g_project && document.getElementById('g_project')) {
-                document.getElementById('g_project').value = payload.header.g_project;
-                sessionStorage.setItem('struct_tools_g_project', payload.header.g_project);
-            }
-            if (payload.header.g_date && document.getElementById('g_date')) {
-                document.getElementById('g_date').value = payload.header.g_date;
-                sessionStorage.setItem('struct_tools_g_date', payload.header.g_date);
-            }
-            if (payload.header.g_engineer && document.getElementById('g_engineer')) {
-                document.getElementById('g_engineer').value = payload.header.g_engineer;
-                sessionStorage.setItem('struct_tools_g_engineer', payload.header.g_engineer);
-            }
-            GlobalInfo.updatePrintHeader();
+        if (!payload || typeof payload !== 'object') {
+            alert('無効なJSONデータです。');
+            return;
         }
 
-        // 2. フォーム各要素への設定とイベント発火
-        if (payload.data) {
-            Object.keys(payload.data).forEach(key => {
-                const val = payload.data[key];
-                const el = document.getElementById(key) || document.querySelector(`[name="${key}"]`);
+        let restoredItems = [];
+
+        // 1. ヘッダー情報の復元
+        const header = payload.header || payload.project;
+        if (header) {
+            const projName = header.g_project || header.project;
+            if (projName && document.getElementById('g_project')) {
+                document.getElementById('g_project').value = projName;
+                sessionStorage.setItem('struct_tools_g_project', projName);
+            }
+            if (projName && document.getElementById('p_project')) {
+                document.getElementById('p_project').value = projName;
+            }
+            const dateVal = header.g_date || header.date;
+            if (dateVal && document.getElementById('g_date')) {
+                document.getElementById('g_date').value = dateVal;
+                sessionStorage.setItem('struct_tools_g_date', dateVal);
+            }
+            if (dateVal && document.getElementById('p_date')) {
+                document.getElementById('p_date').value = dateVal;
+            }
+            const engVal = header.g_engineer || header.engineer;
+            if (engVal && document.getElementById('g_engineer')) {
+                document.getElementById('g_engineer').value = engVal;
+                sessionStorage.setItem('struct_tools_g_engineer', engVal);
+            }
+            if (engVal && document.getElementById('p_engineer')) {
+                document.getElementById('p_engineer').value = engVal;
+            }
+            if (header.fc && document.getElementById('p_fc')) {
+                document.getElementById('p_fc').value = header.fc;
+            }
+            if (header.note && document.getElementById('p_note')) {
+                document.getElementById('p_note').value = header.note;
+            }
+            if (typeof GlobalInfo !== 'undefined' && GlobalInfo.updatePrintHeader) {
+                GlobalInfo.updatePrintHeader();
+            }
+            restoredItems.push('ヘッダー情報');
+        }
+
+        // 2. ツール固有の復元ハンドラ（window.restoreToolData）があれば最優先実行
+        if (typeof window.restoreToolData === 'function') {
+            const ok = window.restoreToolData(payload);
+            if (ok) {
+                restoredItems.push('計算ツール固有データ（開口・算定設定）');
+            }
+        } else {
+            // 人通口ツール（openings / cards）等の汎用復元フォールバック
+            const rawOpenings = payload.openings || payload.cards || payload.data?.openings || (Array.isArray(payload) ? payload : null);
+            if (Array.isArray(rawOpenings) && (typeof window.openings !== 'undefined' || document.getElementById('cards'))) {
+                const mapped = rawOpenings.map(raw => {
+                    const base = (typeof window.newOpening === 'function') ? window.newOpening() : (typeof newOpening === 'function' ? newOpening() : {});
+                    const o = { ...base, ...raw };
+                    if (!o.id && typeof crypto !== 'undefined' && crypto.randomUUID) o.id = crypto.randomUUID();
+                    return o;
+                });
+                window.openings = mapped;
+                if (typeof window.recalculateAll === 'function') window.recalculateAll();
+                if (typeof window.mountCards === 'function') window.mountCards();
+                else if (typeof mountCards === 'function') mountCards();
+                if (typeof window.updateGlobalControls === 'function') window.updateGlobalControls();
+                if (typeof window.updatePrintPreview === 'function') window.updatePrintPreview();
+                restoredItems.push(`人通口開口データ (${mapped.length}箇所)`);
+            }
+        }
+
+        // 3. Z係数ツール（tableHtml）の完全復元
+        const tableHtml = payload.tableHtml || payload.data?.tableHtml;
+        const tableBody = document.querySelector('#resultTable tbody');
+        if (tableHtml && tableBody) {
+            tableBody.innerHTML = tableHtml;
+            const rowCount = tableBody.querySelectorAll('tr').length;
+            restoredItems.push(`Z・I 算定履歴 (${rowCount}件)`);
+        }
+
+        // 4. めり込み補強ツール（merikomi_rows / rows）の完全復元
+        const mRows = payload.merikomi_rows || (payload.tool_id === 'merikomi' && payload.rows) || (Array.isArray(payload) && payload[0]?.pt ? payload : null);
+        if (Array.isArray(mRows) && document.getElementById('table_body') && typeof addRow === 'function') {
+            const tbody = document.getElementById('table_body');
+            tbody.innerHTML = '';
+            mRows.forEach(d => addRow(d));
+            if (typeof checkOverallStatus === 'function') checkOverallStatus();
+            restoredItems.push(`めり込み検討柱 (${mRows.length}箇所)`);
+        }
+
+        // 4. フォーム各要素（静的フォーム・入力値）への設定とイベント発火
+        const formData = payload.data || payload.params || payload.inputs;
+        if (formData && typeof formData === 'object') {
+            Object.keys(formData).forEach(key => {
+                if (key === 'openings' || key === 'tableHtml') return;
+                const val = formData[key];
+                const el = document.getElementById(key) || document.querySelector(`[name="${key}"]`) || document.querySelector(`[data-field="${key}"]`);
                 if (!el) return;
 
                 if (el.type === 'checkbox' || el.type === 'radio') {
                     const group = document.querySelectorAll(`[name="${key}"], #${key}`);
-                    group.forEach(target => {
-                        target.checked = (target.value === val);
-                        target.dispatchEvent(new Event('change', { bubbles: true }));
-                    });
+                    if (group.length > 1) {
+                        group.forEach(target => {
+                            target.checked = (target.value === String(val));
+                            target.dispatchEvent(new Event('change', { bubbles: true }));
+                        });
+                    } else {
+                        el.checked = (val === true || val === "true" || val === el.value);
+                        el.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
                 } else {
                     el.value = val;
                     el.dispatchEvent(new Event('input', { bubbles: true }));
                     el.dispatchEvent(new Event('change', { bubbles: true }));
                 }
             });
+            if (typeof updateOptions === 'function') updateOptions();
+            if (typeof toggleMode === 'function') toggleMode();
+            restoredItems.push('入力パラメータ');
         }
 
-        // グローバル計算関数がある場合呼び出し（calc, calculate, calculateAll等）
-        if (typeof window.calc === 'function') window.calc();
-        if (typeof window.calculate === 'function') window.calculate();
-        if (typeof window.calculateAll === 'function') window.calculateAll();
+        // 5. 条件チェックボックス（conditions）等の復元
+        if (payload.params && Array.isArray(payload.params.conditions)) {
+            const cbs = document.querySelectorAll('.condition-cb');
+            cbs.forEach((cb, i) => {
+                if (i < payload.params.conditions.length) {
+                    cb.checked = !!payload.params.conditions[i];
+                    cb.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            });
+        }
 
-        alert("✓ 保存データを画面に復元し、計算を再実行しました。");
+        // 6. グローバル計算関数がある場合再実行（calc, calculate, calculateAll等）
+        if (typeof window.onInputChanged === 'function') window.onInputChanged();
+        else if (typeof window.calc === 'function') window.calc();
+        else if (typeof window.calculate === 'function') window.calculate();
+        else if (typeof window.calculateAll === 'function') window.calculateAll();
+
+        if (restoredItems.length > 0) {
+            alert(`✓ 保存データを画面に復元し、計算を再実行しました。\n（復元内容: ${restoredItems.join('、')}）`);
+        } else {
+            alert(`⚠️ 指定されたJSONファイル内に有効な復元データ（開口データ・入力パラメータ・計算履歴等）が見つかりませんでした。\n画面上で数値を入力後に新しく保存したJSONファイルをご指定ください。`);
+        }
     },
 
     print: function() {
+        if (typeof window.executeToolPrint === 'function') {
+            window.executeToolPrint();
+            return;
+        }
         GlobalInfo.updatePrintHeader();
         window.print();
     }
@@ -381,6 +525,7 @@ async function checkAuth() {
         return true;
     }
 }
+window.checkAuth = checkAuth;
 
 // 認証チェック処理を追加
 document.addEventListener('DOMContentLoaded', async () => {

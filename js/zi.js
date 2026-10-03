@@ -127,6 +127,67 @@ async function calculateAndAddRow() {
 
 function clearTable() { document.querySelector('#resultTable tbody').innerHTML = ''; }
 
+// build_circle 統一復元ハンドラ
+window.restoreToolData = function(payload) {
+    if (!payload || typeof payload !== 'object') return false;
+
+    let restored = false;
+
+    // 1. テーブルHTMLの復元（新旧あらゆる形式に対応）
+    const tableHtml = payload.tableHtml || payload.data?.tableHtml;
+    const tableBody = document.querySelector('#resultTable tbody');
+    if (tableHtml && tableBody) {
+        tableBody.innerHTML = tableHtml;
+        restored = true;
+    }
+
+    // 2. フォーム入力値の復元 (inputs, data, または payload 直下)
+    const inputs = payload.inputs || payload.data || payload;
+    if (inputs && typeof inputs === 'object') {
+        if (inputs.calcMode) {
+            const r = document.querySelector(`input[name="calcMode"][value="${inputs.calcMode}"]`);
+            if (r) {
+                r.checked = true;
+                if (typeof toggleMode === 'function') toggleMode();
+                restored = true;
+            }
+        }
+        const setVal = (id, val) => {
+            const el = document.getElementById(id);
+            if (el && val !== undefined) {
+                el.value = val;
+                restored = true;
+            }
+        };
+        setVal('mainB', inputs.mainB);
+        setVal('mainD', inputs.mainD);
+        setVal('leftD', inputs.leftD);
+        setVal('leftJoint', inputs.leftJoint);
+        setVal('rightD', inputs.rightD);
+        setVal('rightJoint', inputs.rightJoint);
+        setVal('watariDepth', inputs.watariDepth);
+        if (document.getElementById('chkHozo') && inputs.chkHozo !== undefined) {
+            document.getElementById('chkHozo').checked = !!inputs.chkHozo;
+            restored = true;
+        }
+    }
+
+    return restored;
+};
+
+// build_circle 統一A4印刷ハンドラ
+window.executeToolPrint = function() {
+    const pdfTitle = document.getElementById('pdfTitle');
+    if (pdfTitle) pdfTitle.style.display = 'block';
+    if (typeof GlobalInfo !== 'undefined' && GlobalInfo.updatePrintHeader) {
+        GlobalInfo.updatePrintHeader();
+    }
+    window.print();
+    setTimeout(() => {
+        if (pdfTitle) pdfTitle.style.display = 'none';
+    }, 1000);
+};
+
 async function exportToPDF() {
     if (!await window.checkAuth()) return;
     const element = document.getElementById('pdf-export-area');
@@ -136,18 +197,97 @@ async function exportToPDF() {
     });
 }
 
-async function saveToFile() {
-    if (!await window.checkAuth()) return;
-    const data = { tableHtml: document.querySelector('#resultTable tbody').innerHTML };
-    const blob = new Blob([JSON.stringify(data)], {type:'application/json'});
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'zi_data.json'; a.click();
+function saveToFile() {
+    const inputs = {
+        calcMode: document.querySelector('input[name="calcMode"]:checked')?.value || 'precut',
+        mainB: document.getElementById('mainB')?.value || '105',
+        mainD: document.getElementById('mainD')?.value || '300',
+        leftD: document.getElementById('leftD')?.value || '150',
+        leftJoint: document.getElementById('leftJoint')?.value || 'ari',
+        rightD: document.getElementById('rightD')?.value || '105',
+        rightJoint: document.getElementById('rightJoint')?.value || 'ari',
+        chkHozo: document.getElementById('chkHozo')?.checked ?? true,
+        watariDepth: document.getElementById('watariDepth')?.value || '30'
+    };
+    const tableBody = document.querySelector('#resultTable tbody');
+    const tableHtml = tableBody ? tableBody.innerHTML : '';
+    const rowCount = tableBody ? tableBody.querySelectorAll('tr').length : 0;
+
+    const data = {
+        tool_id: 'zi',
+        title: 'Z・I 欠損低減算出ツール',
+        timestamp: new Date().toISOString(),
+        inputs: inputs,
+        tableHtml: tableHtml,
+        rowCount: rowCount
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `zi_calc_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
 }
 
 function loadFromFile(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+
     const reader = new FileReader();
     reader.onload = (e) => {
-        const data = JSON.parse(e.target.result);
-        document.querySelector('#resultTable tbody').innerHTML = data.tableHtml;
+        try {
+            const data = JSON.parse(e.target.result);
+            if (!data || typeof data !== 'object') {
+                throw new Error('無効なJSONデータです。');
+            }
+
+            // 1. テーブルHTMLの復元
+            const tableBody = document.querySelector('#resultTable tbody');
+            if (tableBody) {
+                if (data.tableHtml) {
+                    tableBody.innerHTML = data.tableHtml;
+                } else if (typeof data === 'string') {
+                    tableBody.innerHTML = data;
+                }
+            }
+
+            // 2. フォーム入力値の復元 (存在する場合)
+            const inputs = data.inputs || data.data;
+            if (inputs) {
+                if (inputs.calcMode) {
+                    const r = document.querySelector(`input[name="calcMode"][value="${inputs.calcMode}"]`);
+                    if (r) {
+                        r.checked = true;
+                        if (typeof toggleMode === 'function') toggleMode();
+                    }
+                }
+                const setVal = (id, val) => {
+                    const el = document.getElementById(id);
+                    if (el && val !== undefined) el.value = val;
+                };
+                setVal('mainB', inputs.mainB);
+                setVal('mainD', inputs.mainD);
+                setVal('leftD', inputs.leftD);
+                setVal('leftJoint', inputs.leftJoint);
+                setVal('rightD', inputs.rightD);
+                setVal('rightJoint', inputs.rightJoint);
+                setVal('watariDepth', inputs.watariDepth);
+                if (document.getElementById('chkHozo') && inputs.chkHozo !== undefined) {
+                    document.getElementById('chkHozo').checked = !!inputs.chkHozo;
+                }
+            }
+
+            const rowCount = tableBody ? tableBody.querySelectorAll('tr').length : 0;
+            alert(`✓ Z・I 欠損低減データを正常に復元しました。（計算履歴: ${rowCount} 件）`);
+        } catch (err) {
+            console.error('ZI load error:', err);
+            alert('ファイルの復元に失敗しました。ファイル形式が正しいJSONかご確認ください。\n' + err.message);
+        } finally {
+            event.target.value = ''; // 同一ファイルの再選択を許可
+        }
     };
-    reader.readAsText(event.target.files[0]);
+    reader.readAsText(file);
 }

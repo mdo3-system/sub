@@ -328,6 +328,43 @@ function initApp() {
     updateOptions();
 }
 
+// --- build_circle 統一復元ハンドラ ---
+window.restoreToolData = function(data) {
+    if (!data) return false;
+    const p = data.params || data.data || data;
+    if (!p || typeof p !== 'object') return false;
+
+    if (p.panel_spec && document.getElementById('panel_spec')) {
+        document.getElementById('panel_spec').value = p.panel_spec;
+    }
+    updateOptions();
+
+    if (p.nail_type && document.getElementById('nail_type')) document.getElementById('nail_type').value = p.nail_type;
+    if (p.nail_pitch && document.getElementById('nail_pitch')) document.getElementById('nail_pitch').value = p.nail_pitch;
+    if (p.nail_pattern && document.getElementById('nail_pattern')) document.getElementById('nail_pattern').value = p.nail_pattern;
+    if (p.roof_slope && document.getElementById('roof_slope')) document.getElementById('roof_slope').value = p.roof_slope;
+    if (p.rafter_b && document.getElementById('rafter_b')) document.getElementById('rafter_b').value = p.rafter_b;
+    if (p.rafter_d && document.getElementById('rafter_d')) document.getElementById('rafter_d').value = p.rafter_d;
+    if (p.rafter_l && document.getElementById('rafter_l')) document.getElementById('rafter_l').value = p.rafter_l;
+    if (p.wood_E && document.getElementById('wood_E')) document.getElementById('wood_E').value = p.wood_E;
+    if (p.wood_E_val && document.getElementById('wood_E_val')) document.getElementById('wood_E_val').value = p.wood_E_val;
+    if (p.joint_spec && document.getElementById('joint_spec')) document.getElementById('joint_spec').value = p.joint_spec;
+    if (p.korobi_spec && document.getElementById('korobi_spec')) document.getElementById('korobi_spec').value = p.korobi_spec;
+
+    if (p.end_rafter_pv_sel && document.getElementById('end_rafter_pv_sel')) document.getElementById('end_rafter_pv_sel').value = p.end_rafter_pv_sel;
+    if (p.end_rafter_pv && document.getElementById('end_rafter_pv')) document.getElementById('end_rafter_pv').value = p.end_rafter_pv;
+    if (p.end_rafter_pitch && document.getElementById('end_rafter_pitch')) document.getElementById('end_rafter_pitch').value = p.end_rafter_pitch;
+
+    if (p.conditions && Array.isArray(p.conditions)) {
+        const cbs = document.querySelectorAll('.condition-cb');
+        cbs.forEach((cb, i) => { if (i < p.conditions.length) cb.checked = !!p.conditions[i]; });
+    }
+
+    if (typeof onInputChanged === 'function') onInputChanged();
+    else calc();
+    return true;
+};
+
 // --- JSON入出力機能 ---
 async function exportData() {
     if (typeof checkAuth === 'function') await checkAuth();
@@ -392,7 +429,12 @@ async function importData(event) {
             
             if (typeof onInputChanged === 'function') onInputChanged();
             else calc();
-        } catch (err) { alert('読込失敗'); }
+            alert('✓ 垂木工法勾配屋根データを復元しました。');
+        } catch (err) {
+            alert('ファイルの復元に失敗しました。形式をご確認ください。');
+        } finally {
+            if (event.target) event.target.value = '';
+        }
     };
     reader.readAsText(file);
 }

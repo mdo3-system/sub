@@ -82,15 +82,9 @@
                 <span id="loading_msg" class="loading">解析中...</span>
             </div>
             
-            <div class="upload-area" style="background:#e6fffa; border-color:#38b2ac;">
-                <strong>📁 保存ファイルを読み込む (JSON)</strong><br>
-                <input type="file" id="json_upload" accept=".json" style="margin-top:5px; width:auto;" onchange="importData(event)">
-            </div>
-            
             <div style="flex:1; min-width:200px; display:flex; flex-direction:column; gap:8px;">
                 <div style="display:flex; gap:8px; justify-content:flex-end;">
                     <button class="btn btn-primary" onclick="addEmptyRow()">+ 手動で行を追加</button>
-                    <button class="btn btn-success" onclick="exportData()">💾 状態を保存</button>
                 </div>
                 <button class="btn btn-print" onclick="attemptPrint()" style="align-self:flex-end;">🖨 A4縦で印刷する</button>
             </div>

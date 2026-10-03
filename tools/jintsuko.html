@@ -92,11 +92,6 @@
             <div style="flex:1;"><label style="font-weight:bold; font-size:0.85rem; color:var(--text-muted);">備考</label><input type="text" id="p_note" placeholder="基礎スラブ内人通口補強" oninput="window.updatePrintPreview()"></div>
         </div>
 
-    <div class="json-area">
-        <h3 style="margin: 0 0 5px 0; color: #22543d; font-size: 1em;">📁 保存データ (JSON) 読込</h3>
-        <input type="file" id="json_upload" accept=".json" onchange="window.importData(event)">
-    </div>
-
     <div class="sticky-header" id="stickyArea">
         <div class="pdf-extract-area">
             <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -121,7 +116,6 @@
         <div class="toolbar">
             <div class="btn-group">
                 <button class="btn-add" id="btnAdd">＋ 手動追加</button>
-                <button class="btn-success" onclick="window.exportData()">💾 JSON保存</button>
                 <button class="btn-clear" id="btnClear">全てクリア</button>
             </div>
             <div style="display:flex; align-items:center; gap:15px;">

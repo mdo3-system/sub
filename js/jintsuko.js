@@ -268,13 +268,41 @@ function renderCard(o, idx) {
     card.appendChild(res);
 
     card.querySelectorAll("input,select").forEach(el => {
-        if(el.type === "checkbox") el.checked = o[el.dataset.field] === true || o[el.dataset.field] === "true"; else el.value = o[el.dataset.field] ?? "";
-        el.addEventListener("input", () => { if(o.judgement !== "NA") { o.judgement = "NA"; updateCardComputed(card, o); window.updateGlobalControls(); } });
+        if(el.type === "checkbox") {
+            el.checked = o[el.dataset.field] === true || o[el.dataset.field] === "true";
+        } else {
+            el.value = o[el.dataset.field] ?? "";
+        }
+        el.addEventListener("input", () => {
+            if (el.type === "checkbox") {
+                o[el.dataset.field] = el.checked;
+            } else {
+                o[el.dataset.field] = el.value;
+            }
+            if(o.judgement !== "NA") {
+                o.judgement = "NA";
+                updateCardComputed(card, o);
+                window.updateGlobalControls();
+            }
+        });
+        el.addEventListener("change", () => {
+            if (el.type === "checkbox") {
+                o[el.dataset.field] = el.checked;
+            } else {
+                o[el.dataset.field] = el.value;
+            }
+        });
     });
 
     const chk = card.querySelector(`[data-field="enable_shear"]`);
-    shearWrap.style.display = chk.checked ? "block" : "none";
-    chk.addEventListener("change", (e) => { shearWrap.style.display = e.target.checked ? "block" : "none"; o.enable_shear = e.target.checked; window.updateGlobalControls(); });
+    if (chk) {
+        shearWrap.style.display = chk.checked ? "block" : "none";
+        chk.addEventListener("change", (e) => {
+            shearWrap.style.display = e.target.checked ? "block" : "none";
+            o.enable_shear = e.target.checked;
+            window.updateGlobalControls();
+        });
+    }
 
     updateCardComputed(card, o); return card;
 }
@@ -290,6 +318,9 @@ function updateCardComputed(card, o) {
 }
 
 function mountCards() { const wrap = document.getElementById("cards"); if(!wrap) return; wrap.innerHTML = ""; openings.forEach((o, i) => wrap.appendChild(renderCard(o, i))); }
+window.mountCards = mountCards;
+window.newOpening = newOpening;
+window.openings = openings;
 
 window.recalculateAll = function() {
     openings.forEach(o => computeOne(o));
@@ -322,9 +353,102 @@ window.updateGlobalControls = function() {
     window.updatePrintPreview();
 };
 
+window.syncDomToOpenings = function() {
+    const cards = document.querySelectorAll('#cards .card');
+    cards.forEach((card, idx) => {
+        const id = card.dataset.id;
+        const o = openings.find(x => x.id === id) || openings[idx];
+        if (!o) return;
+        card.querySelectorAll("input[type='text'], input[type='number'], select").forEach(el => {
+            if (el.dataset.field) o[el.dataset.field] = el.value;
+        });
+        const chk = card.querySelector(`[data-field="enable_shear"]`);
+        if (chk) o.enable_shear = chk.checked;
+    });
+    window.openings = openings;
+};
+
+// 共通データ復元ハンドラ (過去のJSON・新ToolStorage JSON双方を100%完全復元)
+window.restoreToolData = function(data) {
+    if (!data) return false;
+
+    let loadedOpenings = [];
+
+    if (Array.isArray(data)) {
+        loadedOpenings = data;
+    } else if (typeof data === 'object') {
+        const proj = data.project || data.header || data;
+        setInputValueIfExists(["g_project", "p_project"], proj.project || proj.g_project);
+        setInputValueIfExists(["g_date", "p_date"], proj.date || proj.g_date);
+        setInputValueIfExists(["g_engineer", "p_engineer"], proj.engineer || proj.g_engineer);
+        setInputValueIfExists("p_fc", proj.fc || proj.p_fc);
+        setInputValueIfExists("p_note", proj.note || proj.p_note);
+
+        if (Array.isArray(data.openings)) {
+            loadedOpenings = data.openings;
+        } else if (Array.isArray(data.cards)) {
+            loadedOpenings = data.cards;
+        } else if (data.data && Array.isArray(data.data.openings)) {
+            loadedOpenings = data.data.openings;
+        }
+    }
+
+    // 各開口データの正規化とデフォルト値補完
+    openings = loadedOpenings.map(raw => {
+        const o = { ...newOpening(), ...raw };
+        if (!o.id) o.id = crypto.randomUUID();
+        return o;
+    });
+    window.openings = openings;
+
+    // 全件再計算・カードDOM再生成・印刷プレビュー同期
+    window.recalculateAll();
+    mountCards();
+    window.updateGlobalControls();
+    window.updatePrintPreview();
+
+    return true;
+};
+
+// 帳票印刷連携
+window.executeToolPrint = function() {
+    window.syncDomToOpenings();
+    window.recalculateAll();
+    window.updatePrintPreview();
+    const btn = document.getElementById("btnPrint");
+    if (btn && !btn.disabled) {
+        btn.click();
+    } else {
+        const dlg = document.getElementById("dlg");
+        if (dlg) {
+            dlg.showModal();
+        } else {
+            window.print();
+        }
+    }
+};
+
 window.exportData = function() {
-    const blob = new Blob([JSON.stringify({ project: project(), openings: openings }, null, 2)], {type: 'application/json'});
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'jintsuko_calc.json'; a.click();
+    window.syncDomToOpenings();
+    window.recalculateAll();
+    const pInfo = project();
+    const payload = {
+        app_version: "1.4.0",
+        tool_id: "jintsuko",
+        title: getDocumentTitle(),
+        timestamp: new Date().toISOString(),
+        project: pInfo,
+        openings: openings
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    const projName = (pInfo.project || '物件未設定').replace(/[\\/:*?"<>|]/g, '_');
+    a.download = `jintsuko_calc_${projName}_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
 };
 
 function setInputValueIfExists(ids, val) {
@@ -342,43 +466,27 @@ function setInputValueIfExists(ids, val) {
 }
 
 window.importData = function(event) {
-    const file = event.target.files[0]; if (!file) return;
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
             const data = JSON.parse(e.target.result);
-            let loadedOpenings = [];
+            if (!data) throw new Error("空のファイルです。");
 
-            if (Array.isArray(data)) {
-                loadedOpenings = data;
-            } else if (data && typeof data === 'object') {
-                const proj = data.project || data;
-                setInputValueIfExists(["g_project", "p_project"], proj.project || proj.g_project);
-                setInputValueIfExists(["g_date", "p_date"], proj.date || proj.g_date);
-                setInputValueIfExists(["g_engineer", "p_engineer"], proj.engineer || proj.g_engineer);
-                setInputValueIfExists("p_fc", proj.fc || proj.p_fc);
-                setInputValueIfExists("p_note", proj.note || proj.p_note);
-
-                if (Array.isArray(data.openings)) {
-                    loadedOpenings = data.openings;
-                } else if (Array.isArray(data.cards)) {
-                    loadedOpenings = data.cards;
-                }
+            if (window.restoreToolData(data)) {
+                alert(`✓ 人通口計算データを正常に復元しました。（開口箇所: ${openings.length} 件）`);
+            } else {
+                throw new Error("有効な開口データが見つかりませんでした。");
             }
-
-            openings = loadedOpenings;
-            window.recalculateAll();
-            mountCards();
-            window.updateGlobalControls();
-            const uploadEl = document.getElementById('json_upload');
-            if (uploadEl) uploadEl.value = '';
-            alert('データを読み込みました。');
         } catch (err) {
             console.error("JSON import error:", err);
-            alert('ファイルの読み込みに失敗しました。ファイル形式をご確認ください。');
+            alert("読み込みに失敗しました: " + err.message);
         }
     };
     reader.readAsText(file);
+    event.target.value = '';
 };
 
 function fmt(v) { return (v === null || v === undefined || String(v).trim() === "") ? "—" : String(v); }
