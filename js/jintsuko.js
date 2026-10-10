@@ -415,16 +415,31 @@ window.executeToolPrint = function() {
     window.syncDomToOpenings();
     window.recalculateAll();
     window.updatePrintPreview();
-    const btn = document.getElementById("btnPrint");
-    if (btn && !btn.disabled) {
-        btn.click();
-    } else {
-        const dlg = document.getElementById("dlg");
-        if (dlg) {
-            dlg.showModal();
-        } else {
-            window.print();
+
+    if (!openings || openings.length === 0) {
+        alert("開口（カード）が登録されていません。手動追加またはPDF/Excelから取り込んでください。");
+        return;
+    }
+
+    const dlg = document.getElementById("dlg"); 
+    const agree = document.getElementById("agree"); 
+    const btnDlgPrint = document.getElementById("btnDlgPrint");
+    const dlgMsg = document.getElementById("dlg_msg");
+
+    const notOk = openings.filter(o => o.judgement !== "OK");
+    if (dlg) {
+        if (dlgMsg) {
+            if (notOk.length > 0) {
+                dlgMsg.innerHTML = `<span style="color:#e53e3e; font-weight:bold;">⚠️ 判定待ち・NGの項目が ${notOk.length} 件含まれています。</span><br>このまま印刷プレビューに進みますか？`;
+            } else {
+                dlgMsg.innerHTML = `すべての検定がクリアされています。<br>印刷プレビューに進みますか？`;
+            }
         }
+        if (agree) agree.checked = true; 
+        if (btnDlgPrint) btnDlgPrint.disabled = false; 
+        dlg.showModal(); 
+    } else {
+        window.print();
     }
 };
 
