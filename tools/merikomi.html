@@ -17,7 +17,7 @@
         }
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/common.css?v=20261010_v3">
 
     <style>
         /* --- 全体レイアウト --- */
@@ -127,12 +127,12 @@
             display: block;
         }
 
-        /* --- 列幅配分 (画面表示) --- */
+        /* --- 列幅配分 (画面表示: 位置列を16%に拡大して絶対に余裕で収まる設計) --- */
         .col-floor { width: 6%; }
-        .col-pos { width: 14%; }
-        .col-force { width: 22%; }
+        .col-pos { width: 16%; }
+        .col-force { width: 21%; }
         .col-spec { width: 26%; }
-        .col-allow { width: 14%; }
+        .col-allow { width: 13%; }
         .col-judge { width: 11%; }
         .col-action { width: 7%; }
 
@@ -147,7 +147,7 @@
         .input-floor, .input-pos {
             width: 100%;
             box-sizing: border-box;
-            padding: 6px 4px;
+            padding: 6px 6px;
             border: 1.5px solid #cbd5e1;
             border-radius: 6px;
             font-size: 0.92rem;
@@ -159,7 +159,9 @@
         }
         .input-pos {
             font-family: inherit;
-            letter-spacing: 0.02em;
+            letter-spacing: 0.03em;
+            padding-left: 4px;
+            padding-right: 4px;
         }
         .input-floor:focus, .input-pos:focus {
             border-color: #2563eb;
@@ -372,13 +374,13 @@
                 font-size: 7.2pt !important;
             }
 
-            /* 印刷時の列幅配分 */
+            /* 印刷時の列幅配分: 位置列を18%確保 */
             .col-floor { width: 7% !important; }
-            .col-pos { width: 15% !important; }
-            .col-force { width: 24% !important; }
+            .col-pos { width: 18% !important; }
+            .col-force { width: 23% !important; }
             .col-spec { width: 26% !important; }
-            .col-allow { width: 16% !important; }
-            .col-judge { width: 12% !important; }
+            .col-allow { width: 15% !important; }
+            .col-judge { width: 11% !important; }
             .col-action { display: none !important; width: 0 !important; }
 
             /* 印刷時のセルタイポグラフィ */
@@ -389,8 +391,8 @@
 
             .print-pos {
                 font-weight: 700;
-                font-size: 8.8pt;
-                letter-spacing: 0.03em;
+                font-size: 9pt;
+                letter-spacing: 0.04em;
             }
 
             .print-force-row,
@@ -516,8 +518,8 @@
         3. 樹種分類: 【すぎ類】スギ・オウシュウアカマツ・スプルース等、【ひのき類】ヒノキ等、【あかまつ類】ベイマツ・アカマツ等。<br>
     </div>
 
-    <script src="../js/common.js"></script>
-    <script src="../js/merikomi.js"></script>
+    <script src="../js/common.js?v=20261010_v3"></script>
+    <script src="../js/merikomi.js?v=20261010_v3"></script>
 </div>
 </body>
 </html>
